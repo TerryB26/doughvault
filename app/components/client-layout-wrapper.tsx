@@ -1,8 +1,7 @@
 'use client'
 
 import React from 'react'
-import Sidebar from './sidebar'
-import { SidebarProvider, useSidebar } from './sidebar-context'
+import Sidebar, { SidebarProvider, useSidebar } from './sidebar/index'
 import styles from '../layout.module.css'
 
 interface LayoutContentProps {
