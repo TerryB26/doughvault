@@ -1,5 +1,5 @@
-import RegisterForm from '@/app/components/auth/register/RegisterForm'
+import { redirect } from 'next/navigation'
 
 export default function RegisterPage() {
-  return <RegisterForm />
+  redirect('/sign-up')
 }

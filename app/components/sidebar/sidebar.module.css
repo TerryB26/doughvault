@@ -88,3 +88,13 @@
 .icon {
   flex-shrink: 0;
 }
+
+.userSection {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

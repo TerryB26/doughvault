@@ -4,17 +4,71 @@
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-.main {
+.mainArea {
   flex: 1;
   margin-left: 256px;
   transition: margin-left 0.3s ease-in-out;
-  background-color: #f8fafc;
+  display: flex;
+  flex-direction: column;
 }
 
-.mainCollapsed {
+.mainAreaCollapsed {
   margin-left: 64px;
+}
+
+.header {
+  background-color: white;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 64px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.main {
+  flex: 1;
+  background-color: #f8fafc;
 }
 
 .content {
   padding: 24px;
+}
+
+.authButtons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.signInButton {
+  background: transparent;
+  color: #003566;
+  border: 2px solid #003566;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.signInButton:hover {
+  background-color: rgba(0, 53, 102, 0.04);
+}
+
+.signUpButton {
+  background-color: #003566;
+  color: white;
+  border: 2px solid #003566;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.signUpButton:hover {
+  background-color: #002347;
+  border-color: #002347;
 }

@@ -14,11 +14,13 @@ const LayoutContent: React.FC<LayoutContentProps> = ({ children }) => {
   return (
     <div className={styles.layout}>
       <Sidebar />
-      <main className={`${styles.main} ${isCollapsed ? styles.mainCollapsed : ''}`}>
-        <div className={styles.content}>
-          {children}
-        </div>
-      </main>
+      <div className={`${styles.mainArea} ${isCollapsed ? styles.mainAreaCollapsed : ''}`}>
+        <main className={styles.main}>
+          <div className={styles.content}>
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   )
 }
