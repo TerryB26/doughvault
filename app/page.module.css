@@ -48,6 +48,38 @@
   margin-bottom: 8px;
 }
 
+.title {
+  font-size: 32px;
+  font-weight: bold;
+  margin-bottom: 16px;
+  color: #1e293b;
+}
+
+.description {
+  font-size: 16px;
+  color: #64748b;
+  margin-bottom: 24px;
+}
+
+.card {
+  padding: 24px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.cardTitle {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #1e293b;
+}
+
+.cardText {
+  color: #64748b;
+  line-height: 1.6;
+}
+
 .main code {
   font-family: inherit;
   background: var(--gray-alpha-100);

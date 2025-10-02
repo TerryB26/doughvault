@@ -1,0 +1,20 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.main {
+  flex: 1;
+  margin-left: 256px;
+  transition: margin-left 0.3s ease-in-out;
+  background-color: #f8fafc;
+}
+
+.mainCollapsed {
+  margin-left: 64px;
+}
+
+.content {
+  padding: 24px;
+}
