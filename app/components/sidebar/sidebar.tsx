@@ -20,16 +20,6 @@ const navLinks: NavLink[] = [
     link: "/",
     icon: AiOutlineHome,
   },
-  {
-    displayName: "Login",
-    link: "/login",
-    icon: AiOutlineUser,
-  },
-  {
-    displayName: "Register", 
-    link: "/register",
-    icon: AiOutlineSetting,
-  },
 ];
 
 const Sidebar = () => {
