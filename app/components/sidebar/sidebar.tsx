@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
 import { useSidebar } from "./sidebar-context"
-import { AiOutlineClose, AiOutlineHome, AiOutlineMenu } from "react-icons/ai";
+import { AiOutlineClose, AiOutlineHome, AiOutlineMenu, AiOutlineUser, AiOutlineSetting } from "react-icons/ai";
 
 import styles from "./sidebar.module.css";
 
@@ -19,6 +19,16 @@ const navLinks: NavLink[] = [
     displayName: "Home",
     link: "/",
     icon: AiOutlineHome,
+  },
+  {
+    displayName: "Login",
+    link: "/login",
+    icon: AiOutlineUser,
+  },
+  {
+    displayName: "Register", 
+    link: "/register",
+    icon: AiOutlineSetting,
   },
 ];
 
