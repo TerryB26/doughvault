@@ -1,12 +1,16 @@
 {
   "name": "doughvault",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:setup": "node scripts/setup-database.js",
+    "db:seed": "node scripts/setup-database.js",
+    "db:reset": "node scripts/reset-database.js"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.33.1",
@@ -15,8 +19,10 @@
     "@mui/icons-material": "^7.3.3",
     "@mui/material": "^7.3.3",
     "@mui/system": "^7.3.3",
+    "dotenv": "^17.2.3",
     "formik": "^2.4.6",
     "next": "15.5.4",
+    "pg": "^8.16.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-icons": "^5.5.0",
@@ -25,6 +31,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/node": "^20",
+    "@types/pg": "^8.15.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

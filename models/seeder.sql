@@ -1,5 +1,9 @@
--- Roles
+INSERT INTO Users (ClerkUserID, Email, FirstName, LastName, CreatedBy) VALUES 
+('system_user_001', 'system@doughvault.com', 'System', 'Admin', NULL);
 
+UPDATE Users SET CreatedBy = UserID WHERE ClerkUserID = 'system_user_001';
+
+-- Roles (now we can reference UserID = 1)
 INSERT INTO Roles (RoleName, RoleDescription, CreatedBy) VALUES 
 ('Admin', 'Full system access with all permissions', 1),
 ('Manager', 'Manage inventory, users, and view reports', 1),
@@ -74,14 +78,7 @@ INSERT INTO Items (ItemName, ItemDescription, CategoryID, SKU, Unit, Quantity, R
 ('Dough Scraper', 'Metal dough bench scraper', 9, 'EQUIP-SCRAP-MET', 'pieces', 10.00, 3.00, 8.50, 'Winco - Order #WC2024', 'Equipment Storage', 1),
 ('Pizza Cutter Wheels', 'Replacement wheels for pizza cutters', 9, 'EQUIP-CUT-WHEEL', 'pieces', 20.00, 5.00, 3.00, 'Dexter Russell - Order #DR2024', 'Equipment Storage', 1);
 
--- Users
-INSERT INTO Users (ClerkUserID, Email, FirstName, LastName, CreatedBy) VALUES 
-('system_user_001', 'system@doughvault.com', 'System', 'Admin', NULL);
-
-
-UPDATE Users SET CreatedBy = UserID WHERE ClerkUserID = 'system_user_001';
-
-
+-- Additional Users (system user already created above)
 INSERT INTO Users (ClerkUserID, Email, FirstName, LastName, CreatedBy) VALUES 
 ('user_manager_001', 'mario@pizzashop.com', 'Mario', 'Rossi', 1),
 ('user_staff_001', 'luigi@pizzashop.com', 'Luigi', 'Verde', 1),

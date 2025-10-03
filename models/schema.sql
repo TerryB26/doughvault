@@ -197,17 +197,43 @@ BEGIN
     table_name := TG_TABLE_NAME;
     log_table := table_name || 'Logs';
 
-    primary_key_name := table_name || 'ID';
-    uuid_key_name := table_name || 'UUID';
+    -- Convert table name to proper case for column names
+    CASE table_name
+        WHEN 'users' THEN 
+            primary_key_name := 'UserID';
+            uuid_key_name := 'UserUUID';
+        WHEN 'roles' THEN 
+            primary_key_name := 'RoleID';
+            uuid_key_name := 'RoleUUID';
+        WHEN 'userroles' THEN 
+            primary_key_name := 'UserRoleID';
+            uuid_key_name := 'UserRoleUUID';
+        WHEN 'categories' THEN 
+            primary_key_name := 'CategoryID';
+            uuid_key_name := 'CategoryUUID';
+        WHEN 'items' THEN 
+            primary_key_name := 'ItemID';
+            uuid_key_name := 'ItemUUID';
+        ELSE
+            primary_key_name := table_name || 'ID';
+            uuid_key_name := table_name || 'UUID';
+    END CASE;
 
     CASE TG_OP
         WHEN 'INSERT' THEN
             new_values := row_to_json(NEW)::jsonb;
             old_values := NULL;
             
-            -- Extract primary key and UUID from NEW
-            EXECUTE format('SELECT ($1).%I', primary_key_name) USING NEW INTO primary_key_value;
-            EXECUTE format('SELECT ($1).%I', uuid_key_name) USING NEW INTO uuid_key_value;
+            -- Extract primary key and UUID from NEW (for AFTER triggers, these should be available)
+            BEGIN
+                EXECUTE format('SELECT ($1).%I', primary_key_name) USING NEW INTO primary_key_value;
+                EXECUTE format('SELECT ($1).%I', uuid_key_name) USING NEW INTO uuid_key_value;
+            EXCEPTION WHEN OTHERS THEN
+                -- If we can't get the values, log the error and continue
+                RAISE NOTICE 'Could not extract % or % from %: %', primary_key_name, uuid_key_name, table_name, SQLERRM;
+                primary_key_value := NULL;
+                uuid_key_value := NULL;
+            END;
             
         WHEN 'UPDATE' THEN
             old_values := row_to_json(OLD)::jsonb;
