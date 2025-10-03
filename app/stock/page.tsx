@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -16,105 +16,36 @@ import {
   IconButton,
   LinearProgress,
   CircularProgress,
-  Alert
+  Alert,
+  TextField,
+  InputAdornment,
+  TablePagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
-import { Edit, Delete, Add, Warning } from '@mui/icons-material';
+import { Warning, Edit, Delete, Visibility as VisibilityIcon, Add, Search } from '@mui/icons-material';
 import { useItems, useInventorySummary } from '@/lib/hooks/useQueries';
 
-interface StockItem {
-  id: number;
-  name: string;
-  category: string;
+// Interface for items with category information returned by getItemsWithCategories
+interface ItemWithCategory {
+  itemid: number;
+  itemname: string;
+  categoryname: string;
   sku: string;
   quantity: number;
   unit: string;
-  reorderThreshold: number;
-  costPrice: number;
+  reorderthreshold: number;
+  costprice: number;
   supplier: string;
-  location: string;
+  storagelocation: string;
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
 }
-
-const dummyStock: StockItem[] = [
-  {
-    id: 1,
-    name: '00 Flour (Tipo 00)',
-    category: 'Flour & Grains',
-    sku: 'FLOUR-00-25KG',
-    quantity: 150,
-    unit: 'kg',
-    reorderThreshold: 25,
-    costPrice: 2.50,
-    supplier: 'Caputo Flour Co.',
-    location: 'Dry Storage Room A',
-    status: 'In Stock'
-  },
-  {
-    id: 2,
-    name: 'Mozzarella Cheese (Low Moisture)',
-    category: 'Dairy Products',
-    sku: 'CHEESE-MOZ-5LB',
-    quantity: 15,
-    unit: 'lbs',
-    reorderThreshold: 15,
-    costPrice: 4.50,
-    supplier: 'Grande Cheese Co.',
-    location: 'Walk-in Cooler',
-    status: 'Low Stock'
-  },
-  {
-    id: 3,
-    name: 'Pepperoni (Sliced)',
-    category: 'Meats & Proteins',
-    sku: 'MEAT-PEP-5LB',
-    quantity: 50,
-    unit: 'lbs',
-    reorderThreshold: 10,
-    costPrice: 6.50,
-    supplier: 'Hormel Foods',
-    location: 'Walk-in Cooler',
-    status: 'In Stock'
-  },
-  {
-    id: 4,
-    name: 'Fresh Basil',
-    category: 'Vegetables',
-    sku: 'VEG-BASIL-1LB',
-    quantity: 0,
-    unit: 'lbs',
-    reorderThreshold: 1,
-    costPrice: 12.00,
-    supplier: 'Local Organic Farm',
-    location: 'Walk-in Cooler',
-    status: 'Out of Stock'
-  },
-  {
-    id: 5,
-    name: 'Pizza Boxes (16 inch)',
-    category: 'Packaging',
-    sku: 'PKG-BOX-16IN',
-    quantity: 500,
-    unit: 'pieces',
-    reorderThreshold: 100,
-    costPrice: 0.85,
-    supplier: 'WestRock Packaging',
-    location: 'Storage Room C',
-    status: 'In Stock'
-  },
-  {
-    id: 6,
-    name: 'San Marzano Tomatoes',
-    category: 'Vegetables',
-    sku: 'VEG-TOM-SM-28OZ',
-    quantity: 12,
-    unit: 'cans',
-    reorderThreshold: 12,
-    costPrice: 4.50,
-    supplier: 'Cento Fine Foods',
-    location: 'Dry Storage Room B',
-    status: 'Low Stock'
-  }
-];
 
 const getStatusColor = (status: string): 'success' | 'warning' | 'error' => {
   switch (status) {
@@ -132,8 +63,67 @@ const getStockLevel = (quantity: number, threshold: number): number => {
 };
 
 const StockPage = () => {
+  // Pagination states
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Search and filter states
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+
+  // Modal states
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ItemWithCategory | null>(null);
+
   const { data: items = [], isLoading: itemsLoading, error: itemsError } = useItems();
   const { data: summary, isLoading: summaryLoading, error: summaryError } = useInventorySummary();
+
+  // Filter functions
+  const getFilteredItems = () => {
+    return items.filter((item: ItemWithCategory) => {
+      const matchesSearch = item.itemname.toLowerCase().includes(search.toLowerCase()) ||
+                           item.categoryname.toLowerCase().includes(search.toLowerCase()) ||
+                           item.sku.toLowerCase().includes(search.toLowerCase()) ||
+                           item.supplier.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+      const matchesCategory = categoryFilter === 'all' || item.categoryname === categoryFilter;
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
+  };
+
+  // Get unique categories for filter
+  const getUniqueCategories = (): string[] => {
+    const categories = items.map((item: ItemWithCategory) => item.categoryname);
+    return [...new Set(categories)].filter(Boolean).sort() as string[];
+  };
+
+  // Pagination handlers
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // View modal handler
+  const handleViewItem = (item: ItemWithCategory) => {
+    setSelectedItem(item);
+    setViewModalOpen(true);
+  };
+
+  const handleCloseViewModal = () => {
+    setViewModalOpen(false);
+    setSelectedItem(null);
+  };
+
+  // Get paginated items
+  const filteredItems = getFilteredItems();
+  const paginatedItems = filteredItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+
 
   if (itemsLoading || summaryLoading) {
     return (
@@ -188,6 +178,51 @@ const StockPage = () => {
         </Box>
       </Box>
 
+      {/* Search and Filters */}
+      <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <TextField
+          placeholder="Search items..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ minWidth: 250 }}
+        />
+        <FormControl sx={{ minWidth: 120 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={statusFilter}
+            label="Status"
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="In Stock">In Stock</MenuItem>
+            <MenuItem value="Low Stock">Low Stock</MenuItem>
+            <MenuItem value="Out of Stock">Out of Stock</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl sx={{ minWidth: 120 }}>
+          <InputLabel>Category</InputLabel>
+          <Select
+            value={categoryFilter}
+            label="Category"
+            onChange={(e) => setCategoryFilter(e.target.value)}
+          >
+            <MenuItem value="all">All</MenuItem>
+            {getUniqueCategories().map((category: string) => (
+              <MenuItem key={category} value={category}>
+                {category}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+
       <TableContainer component={Paper} sx={{ boxShadow: 3, borderRadius: 2 }}>
         <Table sx={{ minWidth: 650 }} aria-label="stock management table">
           <TableHead>
@@ -202,7 +237,7 @@ const StockPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((item: any) => (
+            {paginatedItems.map((item: ItemWithCategory) => (
               <TableRow
                 key={item.itemid}
                 sx={{ 
@@ -279,6 +314,14 @@ const StockPage = () => {
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                     <IconButton 
                       size="small" 
+                      sx={{ color: '#2e7d32' }}
+                      title="View Details"
+                      onClick={() => handleViewItem(item)}
+                    >
+                      <VisibilityIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
                       sx={{ color: '#1976d2' }}
                       title="Edit Item"
                     >
@@ -297,7 +340,110 @@ const StockPage = () => {
             ))}
           </TableBody>
         </Table>
+        
+        {/* Pagination */}
+        <TablePagination
+          component="div"
+          count={filteredItems.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+        />
       </TableContainer>
+
+      {/* View Item Modal */}
+      <Dialog 
+        open={viewModalOpen} 
+        onClose={handleCloseViewModal}
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="div">
+            Item Details
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {selectedItem && (
+            <Box sx={{ mt: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, mb: 3 }}>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">Item Name</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>{selectedItem.itemname}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">Category</Typography>
+                  <Typography variant="body1">{selectedItem.categoryname || 'Uncategorized'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">SKU</Typography>
+                  <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>{selectedItem.sku || 'N/A'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">Current Stock</Typography>
+                  <Typography variant="body1">{selectedItem.quantity} {selectedItem.unit}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">Reorder Threshold</Typography>
+                  <Typography variant="body1">{selectedItem.reorderthreshold} {selectedItem.unit}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">Status</Typography>
+                  <Chip 
+                    label={selectedItem.status} 
+                    color={getStatusColor(selectedItem.status)}
+                    size="small"
+                  />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">Supplier</Typography>
+                  <Typography variant="body1">{selectedItem.supplier || 'Unknown'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">Storage Location</Typography>
+                  <Typography variant="body1">{selectedItem.storagelocation || 'Unknown'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">Unit Cost</Typography>
+                  <Typography variant="body1">${Number(selectedItem.costprice).toFixed(2)} per {selectedItem.unit}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">Unit</Typography>
+                  <Typography variant="body1">{selectedItem.unit}</Typography>
+                </Box>
+              </Box>
+              
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Stock Level Progress</Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={getStockLevel(selectedItem.quantity, selectedItem.reorderthreshold)}
+                  sx={{
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: '#e0e0e0',
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor: 
+                        selectedItem.status === 'Out of Stock' ? '#d32f2f' :
+                        selectedItem.status === 'Low Stock' ? '#f57c00' : '#2e7d32'
+                    }
+                  }}
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  {Math.round(getStockLevel(selectedItem.quantity, selectedItem.reorderthreshold))}% of reorder threshold
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseViewModal} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
