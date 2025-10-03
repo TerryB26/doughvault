@@ -38,6 +38,8 @@ CREATE TABLE UserRoles (
     AssignedOn TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     AssignedBy INT REFERENCES Users(UserID),
     IsActive BOOLEAN DEFAULT TRUE,
+    UpdatedBy INT REFERENCES Users(UserID),
+    UpdatedOn TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(UserID, RoleID)
 );
 
@@ -195,26 +197,31 @@ DECLARE
 BEGIN
 
     table_name := TG_TABLE_NAME;
-    log_table := table_name || 'Logs';
 
-    -- Convert table name to proper case for column names
+    -- Map table names to their proper log table names and column names
     CASE table_name
         WHEN 'users' THEN 
-            primary_key_name := 'UserID';
-            uuid_key_name := 'UserUUID';
+            log_table := 'userslogs';
+            primary_key_name := 'userid';
+            uuid_key_name := 'useruuid';
         WHEN 'roles' THEN 
-            primary_key_name := 'RoleID';
-            uuid_key_name := 'RoleUUID';
+            log_table := 'roleslogs';
+            primary_key_name := 'roleid';
+            uuid_key_name := 'roleuuid';
         WHEN 'userroles' THEN 
-            primary_key_name := 'UserRoleID';
-            uuid_key_name := 'UserRoleUUID';
+            log_table := 'userroleslogs';
+            primary_key_name := 'userroleid';
+            uuid_key_name := 'userroleuuid';
         WHEN 'categories' THEN 
-            primary_key_name := 'CategoryID';
-            uuid_key_name := 'CategoryUUID';
+            log_table := 'categorieslogs';
+            primary_key_name := 'categoryid';
+            uuid_key_name := 'categoryuuid';
         WHEN 'items' THEN 
-            primary_key_name := 'ItemID';
-            uuid_key_name := 'ItemUUID';
+            log_table := 'itemslogs';
+            primary_key_name := 'itemid';
+            uuid_key_name := 'itemuuid';
         ELSE
+            log_table := table_name || 'logs';
             primary_key_name := table_name || 'ID';
             uuid_key_name := table_name || 'UUID';
     END CASE;
@@ -254,16 +261,16 @@ BEGIN
     
     -- Insert into appropriate log table
     EXECUTE format(
-        'INSERT INTO %I (%I, %I, Action, OldValues, NewValues, ChangedBy, ChangedOn) 
+        'INSERT INTO %I (%I, %I, action, oldvalues, newvalues, changedby, changedon) 
          VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)',
         log_table, 
-        REPLACE(primary_key_name, 'ID', 'ID'),
-        REPLACE(uuid_key_name, 'UUID', 'UUID')
+        lower(primary_key_name),
+        lower(uuid_key_name)
     ) USING primary_key_value, uuid_key_value, TG_OP, old_values, new_values, 
             COALESCE(
                 CASE TG_OP 
-                    WHEN 'DELETE' THEN (old_values->>'UpdatedBy')::INT
-                    ELSE (new_values->>'UpdatedBy')::INT
+                    WHEN 'DELETE' THEN (old_values->>'updatedby')::INT
+                    ELSE (new_values->>'updatedby')::INT
                 END, 
                 1
             );
