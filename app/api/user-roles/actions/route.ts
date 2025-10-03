@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       case 'edit':
         return await editUserRole(data);
       case 'delete':
-        return await removeRole(data);
+        return await removeRole(data ?? body);
       case 'toggle_status':
         return await toggleUserRoleStatus(data);
       default:
@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
 async function assignRole(data: {
   userId: number;
   roleId: number;
+  isActive?: boolean;
   assignedBy?: number;
 }) {
   // Check if assignment already exists
@@ -50,9 +51,9 @@ async function assignRole(data: {
 
   const result = await query(`
     INSERT INTO userroles (userroleuuid, userid, roleid, assignedon, assignedby, isactive, createdon, updatedon)
-    VALUES (gen_random_uuid(), $1, $2, NOW(), $3, true, NOW(), NOW())
+    VALUES (uuid_generate_v4(), $1, $2, NOW(), $3, $4, NOW(), NOW())
     RETURNING userroleid, userroleuuid, userid, roleid, assignedon, assignedby, isactive
-  `, [data.userId, data.roleId, data.assignedBy || null]);
+  `, [data.userId, data.roleId, data.assignedBy || null, data.isActive !== false]);
 
   return NextResponse.json({
     success: true,
@@ -108,19 +109,31 @@ async function editUserRole(data: {
   });
 }
 
-async function removeRole(data: { userRoleId: number; updatedBy?: number }) {
+async function removeRole(data: { userRoleId?: number; userroleid?: number; updatedBy?: number }) {
+  const userRoleId = data.userRoleId ?? data.userroleid;
+  if (!userRoleId) {
+    return NextResponse.json(
+      { error: 'userRoleId is required' },
+      { status: 400 }
+    );
+  }
   const result = await query(`
     UPDATE userroles 
     SET isactive = false, updatedby = $1, updatedon = NOW()
     WHERE userroleid = $2 AND isactive = true
     RETURNING userroleid, userroleuuid, userid, roleid, isactive
-  `, [data.updatedBy || null, data.userRoleId]);
+  `, [data.updatedBy || null, userRoleId]);
 
   if (result.rows.length === 0) {
-    return NextResponse.json(
-      { error: 'User role assignment not found or already inactive' },
-      { status: 404 }
-    );
+    // If already inactive (idempotent delete), return success
+    const check = await query(`SELECT userroleid, isactive FROM userroles WHERE userroleid = $1`, [userRoleId]);
+    if (check.rows.length === 0) {
+      return NextResponse.json({ success: true, message: 'User role assignment did not exist (no-op)' });
+    }
+    if (check.rows[0].isactive === false) {
+      return NextResponse.json({ success: true, message: 'User role assignment already inactive' });
+    }
+    return NextResponse.json({ error: 'User role assignment not found' }, { status: 404 });
   }
 
   return NextResponse.json({

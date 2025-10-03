@@ -4,15 +4,15 @@ import { query } from '@/lib/database';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, data } = body;
+  const { action, data } = body;
 
     switch (action) {
       case 'add':
         return await addRole(data);
       case 'edit':
-        return await editRole(data);
+        return await editRole(data ?? body);
       case 'delete':
-        return await deleteRole(data);
+        return await deleteRole(data ?? body);
       case 'toggle_status':
         return await toggleRoleStatus(data);
       default:
@@ -33,13 +33,14 @@ export async function POST(request: NextRequest) {
 async function addRole(data: {
   roleName: string;
   roleDescription?: string;
+  isActive?: boolean;
   createdBy?: number;
 }) {
   const result = await query(`
     INSERT INTO roles (roleuuid, rolename, roledescription, isactive, createdby, createdon, updatedon)
-    VALUES (gen_random_uuid(), $1, $2, true, $3, NOW(), NOW())
+    VALUES (uuid_generate_v4(), $1, $2, $3, $4, NOW(), NOW())
     RETURNING roleid, roleuuid, rolename, roledescription, isactive, createdon
-  `, [data.roleName, data.roleDescription || null, data.createdBy || null]);
+  `, [data.roleName, data.roleDescription || null, data.isActive !== false, data.createdBy || null]);
 
   return NextResponse.json({
     success: true,
@@ -49,11 +50,19 @@ async function addRole(data: {
 }
 
 async function editRole(data: {
-  roleId: number;
+  roleId?: number; roleid?: number;
   roleName?: string;
   roleDescription?: string;
+  isActive?: boolean;
   updatedBy?: number;
 }) {
+  const roleId = data.roleId ?? data.roleid;
+  if (!roleId) {
+    return NextResponse.json(
+      { error: 'roleId is required' },
+      { status: 400 }
+    );
+  }
   const setParts = [];
   const values = [];
   let paramIndex = 1;
@@ -66,13 +75,17 @@ async function editRole(data: {
     setParts.push(`roledescription = $${paramIndex++}`);
     values.push(data.roleDescription);
   }
+  if (data.isActive !== undefined) {
+    setParts.push(`isactive = $${paramIndex++}`);
+    values.push(data.isActive);
+  }
   
   setParts.push(`updatedby = $${paramIndex++}`);
   values.push(data.updatedBy || null);
   
   setParts.push(`updatedon = NOW()`);
   
-  values.push(data.roleId);
+  values.push(roleId);
 
   const result = await query(`
     UPDATE roles 
@@ -95,25 +108,27 @@ async function editRole(data: {
   });
 }
 
-async function deleteRole(data: { roleId: number; updatedBy?: number }) {
-  // Check if role is assigned to any users
-  const assignmentCheck = await query(`
-    SELECT COUNT(*) as count FROM userroles WHERE roleid = $1 AND isactive = true
-  `, [data.roleId]);
-
-  if (parseInt(assignmentCheck.rows[0].count) > 0) {
+async function deleteRole(data: { roleId?: number; roleid?: number; updatedBy?: number }) {
+  const roleId = data.roleId ?? data.roleid;
+  if (!roleId) {
     return NextResponse.json(
-      { error: 'Cannot delete role that is assigned to users' },
+      { error: 'roleId is required' },
       { status: 400 }
     );
   }
+  // Soft-cascade: deactivate active user role assignments for this role first
+  await query(`
+    UPDATE userroles 
+    SET isactive = false, updatedby = $1, updatedon = NOW()
+    WHERE roleid = $2 AND isactive = true
+  `, [data.updatedBy || null, roleId]);
 
   const result = await query(`
     UPDATE roles 
     SET isactive = false, updatedby = $1, updatedon = NOW()
     WHERE roleid = $2 AND isactive = true
     RETURNING roleid, roleuuid, rolename, roledescription, isactive
-  `, [data.updatedBy || null, data.roleId]);
+  `, [data.updatedBy || null, roleId]);
 
   if (result.rows.length === 0) {
     return NextResponse.json(
