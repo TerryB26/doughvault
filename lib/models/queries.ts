@@ -119,12 +119,11 @@ export async function getUserRolesWithDetails() {
       r.rolename,
       ur.assignedon,
       COALESCE(assigned_by.firstname || ' ' || assigned_by.lastname, 'System') as assignedby,
-      ur.isactive
+      (ur.isactive AND r.isactive) as isactive
     FROM userroles ur
     JOIN users u ON ur.userid = u.userid
     JOIN roles r ON ur.roleid = r.roleid
     LEFT JOIN users assigned_by ON ur.assignedby = assigned_by.userid
-    WHERE ur.isactive = true
     ORDER BY ur.assignedon DESC
   `);
   return result.rows;
@@ -143,7 +142,7 @@ export async function getUsersWithRoles() {
       u.createdon as lastlogin
     FROM users u
     LEFT JOIN userroles ur ON u.userid = ur.userid AND ur.isactive = true
-    LEFT JOIN roles r ON ur.roleid = r.roleid
+    LEFT JOIN roles r ON ur.roleid = r.roleid AND r.isactive = true
     WHERE u.isactive = true
     ORDER BY u.createdon DESC
   `);

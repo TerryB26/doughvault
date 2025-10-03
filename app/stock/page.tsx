@@ -31,6 +31,10 @@ import {
 } from '@mui/material';
 import { Warning, Edit, Delete, Visibility as VisibilityIcon, Add, Search } from '@mui/icons-material';
 import { useItems, useInventorySummary } from '@/lib/hooks/useQueries';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/lib/queryKeys';
+import Swal from 'sweetalert2';
+import StockForms from '@/app/components/stock/StockForms';
 
 // Interface for items with category information returned by getItemsWithCategories
 interface ItemWithCategory {
@@ -75,6 +79,10 @@ const StockPage = () => {
   // Modal states
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemWithCategory | null>(null);
+  const [formModalOpen, setFormModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  
+  const queryClient = useQueryClient();
 
   const { data: items = [], isLoading: itemsLoading, error: itemsError } = useItems();
   const { data: summary, isLoading: summaryLoading, error: summaryError } = useInventorySummary();
@@ -119,6 +127,66 @@ const StockPage = () => {
     setSelectedItem(null);
   };
 
+  // Form modal handlers
+  const handleAddClick = () => {
+    setModalMode('add');
+    setSelectedItem(null);
+    setFormModalOpen(true);
+  };
+
+  const handleEditClick = (item: ItemWithCategory) => {
+    setModalMode('edit');
+    setSelectedItem(item);
+    setFormModalOpen(true);
+  };
+
+  const handleDeleteClick = async (item: ItemWithCategory) => {
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: 'This action cannot be undone!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await fetch('/api/items/actions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', itemid: item.itemid })
+        });
+
+        if (!response.ok) throw new Error('Failed to delete item');
+
+        // Refresh queries
+        await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ITEMS] });
+        await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INVENTORY_SUMMARY] });
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Deleted!',
+          text: 'The item has been deleted successfully.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } catch {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to delete the item. Please try again.'
+        });
+      }
+    }
+  };
+
+  const handleCloseFormModal = () => {
+    setFormModalOpen(false);
+    setSelectedItem(null);
+  };
+
   // Get paginated items
   const filteredItems = getFilteredItems();
   const paginatedItems = filteredItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -150,6 +218,7 @@ const StockPage = () => {
         <Button
           variant="contained"
           startIcon={<Add />}
+          onClick={handleAddClick}
           sx={{ 
             bgcolor: '#d32f2f', 
             '&:hover': { bgcolor: '#b71c1c' }
@@ -324,6 +393,7 @@ const StockPage = () => {
                       size="small" 
                       sx={{ color: '#1976d2' }}
                       title="Edit Item"
+                      onClick={() => handleEditClick(item)}
                     >
                       <Edit fontSize="small" />
                     </IconButton>
@@ -331,6 +401,7 @@ const StockPage = () => {
                       size="small" 
                       sx={{ color: '#d32f2f' }}
                       title="Delete Item"
+                      onClick={() => handleDeleteClick(item)}
                     >
                       <Delete fontSize="small" />
                     </IconButton>
@@ -444,6 +515,14 @@ const StockPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Stock Forms Modal */}
+      <StockForms
+        open={formModalOpen}
+        onClose={handleCloseFormModal}
+        mode={modalMode}
+        selectedItem={selectedItem}
+      />
     </Box>
   );
 };
