@@ -9,6 +9,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Paper,
   Typography,
   Box,
@@ -40,9 +41,15 @@ import {
   Group, 
   Search, 
   Add, 
-  FilterList 
+  FilterList,
+  ToggleOn,
+  ToggleOff
 } from '@mui/icons-material';
 import { useUsers, useRoles, useUserRoles } from '@/lib/hooks/useQueries';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/lib/queryKeys';
+import Swal from 'sweetalert2';
+import AdminForms from '@/app/components/admin/AdminForms';
 
 // Interface for users with role information returned by getUsersWithRoles
 interface UserWithRole {
@@ -279,6 +286,22 @@ const AdminPage = () => {
   const [userRolePage, setUserRolePage] = useState(0);
   const [userRoleRowsPerPage, setUserRoleRowsPerPage] = useState(10);
 
+  // Sorting states
+  const [usersOrder, setUsersOrder] = useState<'asc' | 'desc'>('asc');
+  const [usersOrderBy, setUsersOrderBy] = useState<keyof UserWithRole>('name');
+  const [rolesOrder, setRolesOrder] = useState<'asc' | 'desc'>('asc');
+  const [rolesOrderBy, setRolesOrderBy] = useState<keyof RoleWithUserCount>('rolename');
+  const [userRolesOrder, setUserRolesOrder] = useState<'asc' | 'desc'>('asc');
+  const [userRolesOrderBy, setUserRolesOrderBy] = useState<keyof UserRoleWithDetails>('username');
+
+  // Modal states
+  const [addEditModalOpen, setAddEditModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<UserWithRole | RoleWithUserCount | UserRoleWithDetails | null>(null);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [modalType, setModalType] = useState<'user' | 'role' | 'userRole'>('user');
+  
+  const queryClient = useQueryClient();
+
   // Search states
   const [userSearch, setUserSearch] = useState('');
   const [roleSearch, setRoleSearch] = useState('');
@@ -289,10 +312,7 @@ const AdminPage = () => {
   const [roleStatusFilter, setRoleStatusFilter] = useState('all');
   const [userRoleStatusFilter, setUserRoleStatusFilter] = useState('all');
 
-  // Modal states
-  const [addEditModalOpen, setAddEditModalOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<UserWithRole | RoleWithUserCount | UserRoleWithDetails | null>(null);
-  const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view'>('view');
+
 
   const { data: users = [], isLoading: usersLoading, error: usersError } = useUsers();
   const { data: roles = [], isLoading: rolesLoading, error: rolesError } = useRoles();
@@ -313,6 +333,55 @@ const AdminPage = () => {
                            (userStatusFilter === 'inactive' && !user.isactive);
       return matchesSearch && matchesStatus;
     });
+  };
+
+  // Sorting helpers
+  const parseValue = (value: unknown, key: string) => {
+    if (value === null || value === undefined) return '' as unknown as number | string;
+    if (key === 'lastlogin' || key === 'createdon' || key === 'assignedon') {
+      const t = new Date(String(value)).getTime();
+      return isNaN(t) ? 0 : t;
+    }
+    if (typeof value === 'boolean') return value ? 1 : 0;
+    if (typeof value === 'number') return value;
+    return String(value).toLowerCase();
+  };
+
+  const getComparator = <T, K extends keyof T>(order: 'asc' | 'desc', orderBy: K) => (a: T, b: T) => {
+    const va = parseValue(a[orderBy] as unknown, String(orderBy));
+    const vb = parseValue(b[orderBy] as unknown, String(orderBy));
+    if (va < vb) return order === 'asc' ? -1 : 1;
+    if (va > vb) return order === 'asc' ? 1 : -1;
+    return 0;
+  };
+
+  const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
+    return array
+      .map((el, index) => [el, index] as [T, number])
+      .sort((a, b) => {
+        const order = comparator(a[0], b[0]);
+        if (order !== 0) return order;
+        return a[1] - b[1];
+      })
+      .map((el) => el[0]);
+  };
+
+  const handleUsersRequestSort = (property: typeof usersOrderBy) => {
+    const isAsc = usersOrderBy === property && usersOrder === 'asc';
+    setUsersOrder(isAsc ? 'desc' : 'asc');
+    setUsersOrderBy(property);
+  };
+
+  const handleRolesRequestSort = (property: typeof rolesOrderBy) => {
+    const isAsc = rolesOrderBy === property && rolesOrder === 'asc';
+    setRolesOrder(isAsc ? 'desc' : 'asc');
+    setRolesOrderBy(property);
+  };
+
+  const handleUserRolesRequestSort = (property: typeof userRolesOrderBy) => {
+    const isAsc = userRolesOrderBy === property && userRolesOrder === 'asc';
+    setUserRolesOrder(isAsc ? 'desc' : 'asc');
+    setUserRolesOrderBy(property);
   };
 
   const getFilteredRoles = () => {
@@ -339,18 +408,129 @@ const AdminPage = () => {
   };
 
   // Modal handlers
-
-  const handleAddClick = () => {
-    setSelectedItem(null);
+  const handleAddClick = async (type: 'user' | 'role' | 'userRole') => {
+    setModalType(type);
     setModalMode('add');
+    setSelectedItem(null);
+
+    // Ensure freshest data before opening modal
+    if (type === 'user') {
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ROLES] });
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USERS] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.ROLES] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.USERS] });
+    } else if (type === 'role') {
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ROLES] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.ROLES] });
+    } else if (type === 'userRole') {
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USERS] });
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ROLES] });
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USER_ROLES] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.USERS] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.ROLES] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.USER_ROLES] });
+    }
+
     setAddEditModalOpen(true);
   };
 
-  const handleEditClick = (item: UserWithRole | RoleWithUserCount | UserRoleWithDetails) => {
+  const handleEditClick = async (item: UserWithRole | RoleWithUserCount | UserRoleWithDetails) => {
     setSelectedItem(item);
     setModalMode('edit');
+    
+    // Determine modal type based on item properties
+    if ('userid' in item) {
+      setModalType('user');
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USERS] });
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ROLES] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.USERS] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.ROLES] });
+    } else if ('roleid' in item && 'usercount' in item) {
+      setModalType('role');
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ROLES] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.ROLES] });
+    } else {
+      setModalType('userRole');
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USER_ROLES] });
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USERS] });
+      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ROLES] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.USER_ROLES] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.USERS] });
+      await queryClient.refetchQueries({ queryKey: [QUERY_KEYS.ROLES] });
+    }
+    
     setAddEditModalOpen(true);
   };
+
+  const handleDeleteClick = async (item: UserWithRole | RoleWithUserCount | UserRoleWithDetails) => {
+    const isRole = 'roleid' in item && 'usercount' in item;
+    const confirmText = isRole
+      ? ('isactive' in item && item.isactive
+          ? 'This will deactivate the role and disable related assignments.'
+          : 'This will activate the role and re-enable related assignments where applicable.')
+      : 'This action cannot be undone!';
+    const confirmButton = isRole
+      ? (('isactive' in item && item.isactive) ? 'Yes, deactivate' : 'Yes, activate')
+      : 'Yes, delete it!';
+
+    const result = await Swal.fire({
+      title: isRole ? 'Change Role Status?' : 'Are you sure?',
+      text: confirmText,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: confirmButton
+    });
+
+    if (result.isConfirmed) {
+      try {
+        let endpoint = '';
+        let itemData = {};
+        
+        if ('userid' in item) {
+          endpoint = '/api/users/actions';
+          itemData = { action: 'delete', data: { userId: item.userid } };
+        } else if ('roleid' in item && 'usercount' in item) {
+          endpoint = '/api/roles/actions';
+          // Toggle status instead of delete
+          itemData = { action: 'toggle_status', data: { roleId: item.roleid } };
+        } else {
+          endpoint = '/api/user-roles/actions';
+          itemData = { action: 'delete', data: { userRoleId: (item as UserRoleWithDetails).userroleid } };
+        }
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(itemData)
+        });
+
+        if (!response.ok) throw new Error('Failed to delete');
+
+        // Refresh relevant queries
+        await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USERS] });
+        await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ROLES] });
+        await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USER_ROLES] });
+
+        Swal.fire({
+          icon: 'success',
+          title: isRole ? 'Status Updated' : 'Deleted!',
+          text: isRole ? 'Role status updated successfully.' : 'The item has been deleted successfully.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } catch {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to delete the item. Please try again.'
+        });
+      }
+    }
+  };
+
+
 
   const renderUsersTab = () => {
     if (usersLoading) {
@@ -370,7 +550,8 @@ const AdminPage = () => {
     }
 
     const filteredUsers = getFilteredUsers();
-    const paginatedUsers = filteredUsers.slice(
+  const sortedUsers = stableSort<UserWithRole>(filteredUsers, getComparator(usersOrder, usersOrderBy));
+  const paginatedUsers = sortedUsers.slice(
       userPage * userRowsPerPage,
       userPage * userRowsPerPage + userRowsPerPage
     );
@@ -384,7 +565,7 @@ const AdminPage = () => {
           <Button
             variant="contained"
             startIcon={<PersonAdd />}
-            onClick={handleAddClick}
+            onClick={() => handleAddClick('user')}
             sx={{ 
               bgcolor: '#d32f2f', 
               '&:hover': { bgcolor: '#b71c1c' }
@@ -427,11 +608,21 @@ const AdminPage = () => {
           <Table sx={{ minWidth: 650 }} aria-label="users table">
             <TableHead>
               <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>User</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Email</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Role</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Created</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={usersOrderBy === 'name' ? usersOrder : false}>
+                  <TableSortLabel active={usersOrderBy === 'name'} direction={usersOrderBy === 'name' ? usersOrder : 'asc'} onClick={() => handleUsersRequestSort('name')}>User</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={usersOrderBy === 'email' ? usersOrder : false}>
+                  <TableSortLabel active={usersOrderBy === 'email'} direction={usersOrderBy === 'email' ? usersOrder : 'asc'} onClick={() => handleUsersRequestSort('email')}>Email</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={usersOrderBy === 'role' ? usersOrder : false}>
+                  <TableSortLabel active={usersOrderBy === 'role'} direction={usersOrderBy === 'role' ? usersOrder : 'asc'} onClick={() => handleUsersRequestSort('role')}>Role</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={usersOrderBy === 'isactive' ? usersOrder : false}>
+                  <TableSortLabel active={usersOrderBy === 'isactive'} direction={usersOrderBy === 'isactive' ? usersOrder : 'asc'} onClick={() => handleUsersRequestSort('isactive')}>Status</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={usersOrderBy === 'lastlogin' ? usersOrder : false}>
+                  <TableSortLabel active={usersOrderBy === 'lastlogin'} direction={usersOrderBy === 'lastlogin' ? usersOrder : 'asc'} onClick={() => handleUsersRequestSort('lastlogin')}>Created</TableSortLabel>
+                </TableCell>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -494,6 +685,7 @@ const AdminPage = () => {
                         size="small" 
                         sx={{ color: '#d32f2f' }}
                         title="Delete User"
+                        onClick={() => handleDeleteClick(user)}
                       >
                         <Delete fontSize="small" />
                       </IconButton>
@@ -546,7 +738,8 @@ const AdminPage = () => {
     }
 
     const filteredRoles = getFilteredRoles();
-    const paginatedRoles = filteredRoles.slice(
+  const sortedRoles = stableSort<RoleWithUserCount>(filteredRoles, getComparator(rolesOrder, rolesOrderBy));
+  const paginatedRoles = sortedRoles.slice(
       rolePage * roleRowsPerPage,
       rolePage * roleRowsPerPage + roleRowsPerPage
     );
@@ -560,7 +753,7 @@ const AdminPage = () => {
           <Button
             variant="contained"
             startIcon={<Security />}
-            onClick={handleAddClick}
+            onClick={() => handleAddClick('role')}
             sx={{ 
               bgcolor: '#d32f2f', 
               '&:hover': { bgcolor: '#b71c1c' }
@@ -603,11 +796,21 @@ const AdminPage = () => {
           <Table sx={{ minWidth: 650 }} aria-label="roles table">
             <TableHead>
               <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Role Name</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Description</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Users Count</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Created</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={rolesOrderBy === 'rolename' ? rolesOrder : false}>
+                  <TableSortLabel active={rolesOrderBy === 'rolename'} direction={rolesOrderBy === 'rolename' ? rolesOrder : 'asc'} onClick={() => handleRolesRequestSort('rolename')}>Role Name</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={rolesOrderBy === 'roledescription' ? rolesOrder : false}>
+                  <TableSortLabel active={rolesOrderBy === 'roledescription'} direction={rolesOrderBy === 'roledescription' ? rolesOrder : 'asc'} onClick={() => handleRolesRequestSort('roledescription')}>Description</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={rolesOrderBy === 'usercount' ? rolesOrder : false}>
+                  <TableSortLabel active={rolesOrderBy === 'usercount'} direction={rolesOrderBy === 'usercount' ? rolesOrder : 'asc'} onClick={() => handleRolesRequestSort('usercount')}>Users Count</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={rolesOrderBy === 'isactive' ? rolesOrder : false}>
+                  <TableSortLabel active={rolesOrderBy === 'isactive'} direction={rolesOrderBy === 'isactive' ? rolesOrder : 'asc'} onClick={() => handleRolesRequestSort('isactive')}>Status</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={rolesOrderBy === 'createdon' ? rolesOrder : false}>
+                  <TableSortLabel active={rolesOrderBy === 'createdon'} direction={rolesOrderBy === 'createdon' ? rolesOrder : 'asc'} onClick={() => handleRolesRequestSort('createdon')}>Created</TableSortLabel>
+                </TableCell>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -660,10 +863,11 @@ const AdminPage = () => {
                       </IconButton>
                       <IconButton 
                         size="small" 
-                        sx={{ color: '#d32f2f' }}
-                        title="Delete Role"
+                        sx={{ color: role.isactive ? '#d32f2f' : '#2e7d32' }}
+                        title={role.isactive ? 'Deactivate Role' : 'Activate Role'}
+                        onClick={() => handleDeleteClick(role)}
                       >
-                        <Delete fontSize="small" />
+                        {role.isactive ? <ToggleOff fontSize="small" /> : <ToggleOn fontSize="small" />}
                       </IconButton>
                     </Box>
                   </TableCell>
@@ -714,7 +918,8 @@ const AdminPage = () => {
     }
 
     const filteredUserRoles = getFilteredUserRoles();
-    const paginatedUserRoles = filteredUserRoles.slice(
+  const sortedUserRoles = stableSort<UserRoleWithDetails>(filteredUserRoles, getComparator(userRolesOrder, userRolesOrderBy));
+  const paginatedUserRoles = sortedUserRoles.slice(
       userRolePage * userRoleRowsPerPage,
       userRolePage * userRoleRowsPerPage + userRoleRowsPerPage
     );
@@ -728,7 +933,7 @@ const AdminPage = () => {
           <Button
             variant="contained"
             startIcon={<Group />}
-            onClick={handleAddClick}
+            onClick={() => handleAddClick('userRole')}
             sx={{ 
               bgcolor: '#d32f2f', 
               '&:hover': { bgcolor: '#b71c1c' }
@@ -771,11 +976,21 @@ const AdminPage = () => {
           <Table sx={{ minWidth: 650 }} aria-label="user roles table">
             <TableHead>
               <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>User</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Role</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Assigned Date</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Assigned By</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={userRolesOrderBy === 'username' ? userRolesOrder : false}>
+                  <TableSortLabel active={userRolesOrderBy === 'username'} direction={userRolesOrderBy === 'username' ? userRolesOrder : 'asc'} onClick={() => handleUserRolesRequestSort('username')}>User</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={userRolesOrderBy === 'rolename' ? userRolesOrder : false}>
+                  <TableSortLabel active={userRolesOrderBy === 'rolename'} direction={userRolesOrderBy === 'rolename' ? userRolesOrder : 'asc'} onClick={() => handleUserRolesRequestSort('rolename')}>Role</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={userRolesOrderBy === 'assignedon' ? userRolesOrder : false}>
+                  <TableSortLabel active={userRolesOrderBy === 'assignedon'} direction={userRolesOrderBy === 'assignedon' ? userRolesOrder : 'asc'} onClick={() => handleUserRolesRequestSort('assignedon')}>Assigned Date</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={userRolesOrderBy === 'assignedby' ? userRolesOrder : false}>
+                  <TableSortLabel active={userRolesOrderBy === 'assignedby'} direction={userRolesOrderBy === 'assignedby' ? userRolesOrder : 'asc'} onClick={() => handleUserRolesRequestSort('assignedby')}>Assigned By</TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} sortDirection={userRolesOrderBy === 'isactive' ? userRolesOrder : false}>
+                  <TableSortLabel active={userRolesOrderBy === 'isactive'} direction={userRolesOrderBy === 'isactive' ? userRolesOrder : 'asc'} onClick={() => handleUserRolesRequestSort('isactive')}>Status</TableSortLabel>
+                </TableCell>
                 <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -838,6 +1053,7 @@ const AdminPage = () => {
                         size="small" 
                         sx={{ color: '#d32f2f' }}
                         title="Remove Assignment"
+                        onClick={() => handleDeleteClick(userRole)}
                       >
                         <Delete fontSize="small" />
                       </IconButton>
@@ -914,25 +1130,16 @@ const AdminPage = () => {
 
 
 
-      {/* Add/Edit Modal - Placeholder for now */}
-      <Dialog open={addEditModalOpen} onClose={() => setAddEditModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {modalMode === 'add' ? 'Add New' : 'Edit'} {
-            tabValue === 0 ? 'User' : 
-            tabValue === 1 ? 'Role' : 
-            'User Role Assignment'
-          }
-        </DialogTitle>
-        <DialogContent>
-          <Typography>Add/Edit form will be implemented here</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddEditModalOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="primary">
-            {modalMode === 'add' ? 'Add' : 'Update'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Admin Forms Modal */}
+      <AdminForms
+        open={addEditModalOpen}
+        onClose={() => setAddEditModalOpen(false)}
+        mode={modalMode}
+        type={modalType}
+        selectedItem={selectedItem}
+        users={users || []}
+        roles={roles || []}
+      />
     </Box>
   );
 };
