@@ -10,6 +10,8 @@ import {
   AiOutlineMenu,
   AiOutlineDashboard
 } from "react-icons/ai";
+import { MdInventory, MdAdminPanelSettings } from "react-icons/md";
+
 
 import styles from "./sidebar.module.css";
 
@@ -29,6 +31,16 @@ const navLinks: NavLink[] = [
     displayName: "Dashboard",
     link: "/dashboard",
     icon: AiOutlineDashboard,
+  },
+{
+    displayName: "Stock",
+    link: "/stock",
+    icon: MdInventory,
+  },
+  {
+    displayName: "Administration",
+    link: "/admin",
+    icon: MdAdminPanelSettings,
   },
 ];
 
