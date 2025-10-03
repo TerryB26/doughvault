@@ -14,9 +14,12 @@ import {
   Chip,
   Button,
   IconButton,
-  LinearProgress
+  LinearProgress,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import { Edit, Delete, Add, Warning } from '@mui/icons-material';
+import { useItems, useInventorySummary } from '@/lib/hooks/useQueries';
 
 interface StockItem {
   id: number;
@@ -129,6 +132,25 @@ const getStockLevel = (quantity: number, threshold: number): number => {
 };
 
 const StockPage = () => {
+  const { data: items = [], isLoading: itemsLoading, error: itemsError } = useItems();
+  const { data: summary, isLoading: summaryLoading, error: summaryError } = useInventorySummary();
+
+  if (itemsLoading || summaryLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (itemsError || summaryError) {
+    return (
+      <Alert severity="error" sx={{ m: 2 }}>
+        Error loading stock data: {itemsError?.message || summaryError?.message}
+      </Alert>
+    );
+  }
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -150,18 +172,18 @@ const StockPage = () => {
       <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
         <Box sx={{ bgcolor: '#e8f5e8', p: 2, borderRadius: 2, flex: 1 }}>
           <Typography variant="h6" color="#2e7d32">Total Items</Typography>
-          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{dummyStock.length}</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{summary?.totalitems || 0}</Typography>
         </Box>
         <Box sx={{ bgcolor: '#fff3e0', p: 2, borderRadius: 2, flex: 1 }}>
           <Typography variant="h6" color="#f57c00">Low Stock</Typography>
           <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-            {dummyStock.filter(item => item.status === 'Low Stock').length}
+            {summary?.lowstockcount || 0}
           </Typography>
         </Box>
         <Box sx={{ bgcolor: '#ffebee', p: 2, borderRadius: 2, flex: 1 }}>
           <Typography variant="h6" color="#d32f2f">Out of Stock</Typography>
           <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-            {dummyStock.filter(item => item.status === 'Out of Stock').length}
+            {summary?.outstockcount || 0}
           </Typography>
         </Box>
       </Box>
@@ -180,9 +202,9 @@ const StockPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {dummyStock.map((item) => (
+            {items.map((item: any) => (
               <TableRow
-                key={item.id}
+                key={item.itemid}
                 sx={{ 
                   '&:last-child td, &:last-child th': { border: 0 },
                   '&:hover': { bgcolor: '#f9f9f9' }
@@ -191,21 +213,21 @@ const StockPage = () => {
                 <TableCell>
                   <Box>
                     <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {item.name}
+                      {item.itemname}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      ${item.costPrice.toFixed(2)} per {item.unit}
+                      ${Number(item.costprice).toFixed(2)} per {item.unit}
                     </Typography>
                   </Box>
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">
-                    {item.category}
+                    {item.categoryname || 'Uncategorized'}
                   </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                    {item.sku}
+                    {item.sku || 'N/A'}
                   </Typography>
                 </TableCell>
                 <TableCell sx={{ minWidth: 150 }}>
@@ -218,7 +240,7 @@ const StockPage = () => {
                     </Typography>
                     <LinearProgress
                       variant="determinate"
-                      value={getStockLevel(item.quantity, item.reorderThreshold)}
+                      value={getStockLevel(item.quantity, item.reorderthreshold)}
                       sx={{
                         height: 6,
                         borderRadius: 3,
@@ -231,7 +253,7 @@ const StockPage = () => {
                       }}
                     />
                     <Typography variant="caption" color="text.secondary">
-                      Reorder at {item.reorderThreshold} {item.unit}
+                      Reorder at {item.reorderthreshold} {item.unit}
                     </Typography>
                   </Box>
                 </TableCell>
@@ -246,10 +268,10 @@ const StockPage = () => {
                 <TableCell>
                   <Box>
                     <Typography variant="body2">
-                      {item.supplier}
+                      {item.supplier || 'Unknown'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {item.location}
+                      {item.storagelocation || 'Unknown'}
                     </Typography>
                   </Box>
                 </TableCell>

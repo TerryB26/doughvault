@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import React, { useState } from 'react';
@@ -16,9 +17,23 @@ import {
   Button,
   IconButton,
   Tabs,
-  Tab
+  Tab,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import { Edit, Delete, PersonAdd, Security, Group } from '@mui/icons-material';
+import { useUsers, useRoles, useUserRoles } from '@/lib/hooks/useQueries';
+
+// Interface for users with role information returned by getUsersWithRoles
+interface UserWithRole {
+  userid: number;
+  useruuid: string;
+  name: string;
+  email: string;
+  role: string;
+  isactive: boolean;
+  lastlogin: string;
+}
 
 interface User {
   id: number;
@@ -213,116 +228,138 @@ const getStatusColor = (status: string): 'success' | 'error' => {
 const AdminPage = () => {
   const [tabValue, setTabValue] = useState(0);
 
+  const { data: users = [], isLoading: usersLoading, error: usersError } = useUsers();
+  const { data: roles = [], isLoading: rolesLoading, error: rolesError } = useRoles();
+  const { data: userRoles = [], isLoading: userRolesLoading, error: userRolesError } = useUserRoles();
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const renderUsersTab = () => (
-    <>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-          👥 Users Management
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<PersonAdd />}
-          sx={{ 
-            bgcolor: '#d32f2f', 
-            '&:hover': { bgcolor: '#b71c1c' }
-          }}
-        >
-          Add New User
-        </Button>
-      </Box>
+  const renderUsersTab = () => {
+    if (usersLoading) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
 
-      <TableContainer component={Paper} sx={{ boxShadow: 3, borderRadius: 2 }}>
-        <Table sx={{ minWidth: 650 }} aria-label="users table">
-          <TableHead>
-            <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>User</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Email</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Role</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Last Login</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {dummyUsers.map((user) => (
-              <TableRow
-                key={user.id}
-                sx={{ 
-                  '&:last-child td, &:last-child th': { border: 0 },
-                  '&:hover': { bgcolor: '#f9f9f9' }
-                }}
-              >
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ bgcolor: '#d32f2f', width: 32, height: 32 }}>
-                      {user.avatar}
-                    </Avatar>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {user.name}
-                    </Typography>
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary">
-                    {user.email}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip 
-                    label={user.role} 
-                    color={getRoleColor(user.role)}
-                    size="small"
-                    sx={{ fontWeight: 500 }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Chip 
-                    label={user.status} 
-                    color={getStatusColor(user.status)}
-                    size="small"
-                    sx={{ fontWeight: 500 }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary">
-                    {user.lastLogin}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                    <IconButton 
-                      size="small" 
-                      sx={{ color: '#1976d2' }}
-                      title="Edit User"
-                    >
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <IconButton 
-                      size="small" 
-                      sx={{ color: '#d32f2f' }}
-                      title="Delete User"
-                    >
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </TableCell>
+    if (usersError) {
+      return (
+        <Alert severity="error" sx={{ m: 2 }}>
+          Error loading users: {usersError.message}
+        </Alert>
+      );
+    }
+
+    return (
+      <>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+            👥 Users Management
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<PersonAdd />}
+            sx={{ 
+              bgcolor: '#d32f2f', 
+              '&:hover': { bgcolor: '#b71c1c' }
+            }}
+          >
+            Add New User
+          </Button>
+        </Box>
+
+        <TableContainer component={Paper} sx={{ boxShadow: 3, borderRadius: 2 }}>
+          <Table sx={{ minWidth: 650 }} aria-label="users table">
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>User</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Email</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Role</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Created</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', fontSize: '1rem' }} align="center">Actions</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {users.map((user: UserWithRole) => (
+                <TableRow
+                  key={user.userid}
+                  sx={{ 
+                    '&:last-child td, &:last-child th': { border: 0 },
+                    '&:hover': { bgcolor: '#f9f9f9' }
+                  }}
+                >
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Avatar sx={{ bgcolor: '#d32f2f', width: 32, height: 32 }}>
+                        {user.name?.charAt(0) || 'U'}
+                      </Avatar>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        {user.name}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {user.email}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={user.role} 
+                      color={getRoleColor(user.role)}
+                      size="small"
+                      sx={{ fontWeight: 500 }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={user.isactive ? 'Active' : 'Inactive'} 
+                      color={user.isactive ? 'success' : 'error'}
+                      size="small"
+                      sx={{ fontWeight: 500 }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {new Date(user.lastlogin).toLocaleDateString()}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                      <IconButton 
+                        size="small" 
+                        sx={{ color: '#1976d2' }}
+                        title="Edit User"
+                      >
+                        <Edit fontSize="small" />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        sx={{ color: '#d32f2f' }}
+                        title="Delete User"
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
-      <Box sx={{ mt: 3 }}>
-        <Typography variant="body2" color="text.secondary" align="center">
-          Total Users: {dummyUsers.length} • Active: {dummyUsers.filter(u => u.status === 'Active').length} • Inactive: {dummyUsers.filter(u => u.status === 'Inactive').length}
-        </Typography>
-      </Box>
-    </>
-  );
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="body2" color="text.secondary" align="center">
+            Total Users: {users.length} • Active: {users.filter((u: UserWithRole) => u.isactive).length} • Inactive: {users.filter((u: UserWithRole) => !u.isactive).length}
+          </Typography>
+        </Box>
+      </>
+    );
+  };
 
   const renderRolesTab = () => (
     <>
