@@ -27,14 +27,17 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Tabs,
+  Tab
 } from '@mui/material';
 import { Warning, Edit, Delete, Visibility as VisibilityIcon, Add, Search } from '@mui/icons-material';
-import { useItems, useInventorySummary } from '@/lib/hooks/useQueries';
+import { useItems, useInventorySummary, useItemLogs } from '@/lib/hooks/useQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/queryKeys';
 import Swal from 'sweetalert2';
 import StockForms from '@/app/components/stock/StockForms';
+import { ItemLog } from '@/lib/models/types';
 
 interface ItemWithCategory {
   itemid: number;
@@ -77,11 +80,13 @@ const StockPage = () => {
   const [selectedItem, setSelectedItem] = useState<ItemWithCategory | null>(null);
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [activeTab, setActiveTab] = useState(0);
   
   const queryClient = useQueryClient();
 
   const { data: items = [], isLoading: itemsLoading, error: itemsError, refetch: itemsRefetch } = useItems();
   const { data: summary, isLoading: summaryLoading, error: summaryError, refetch: summaryRefetch } = useInventorySummary();
+  const { data: logsData, isLoading: logsLoading } = useItemLogs(selectedItem?.itemid || null);
 
   const getFilteredItems = () => {
     return items.filter((item: ItemWithCategory) => {
@@ -117,6 +122,7 @@ const StockPage = () => {
   const handleCloseViewModal = () => {
     setViewModalOpen(false);
     setSelectedItem(null);
+    setActiveTab(0); 
   };
 
   const handleAddClick = () => {
@@ -443,119 +449,229 @@ const StockPage = () => {
             )}
           </Box>
         </DialogTitle>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+            <Tab label="Details" />
+            <Tab label="Audit Trail" />
+          </Tabs>
+        </Box>
         <DialogContent sx={{ pt: 2 }}>
           {selectedItem && (
             <Box>
-              {/* Header Section with Key Info */}
-              <Paper elevation={0} sx={{ p: 3, mb: 3, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                  {selectedItem.itemname}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                  <Chip 
-                    label={selectedItem.categoryname || 'Uncategorized'} 
-                    size="small" 
-                    sx={{ bgcolor: 'white' }}
-                  />
-                  {selectedItem.sku && (
-                    <Chip 
-                      label={`SKU: ${selectedItem.sku}`}
-                      size="small" 
-                      sx={{ bgcolor: 'white', fontFamily: 'monospace' }}
-                    />
+              {/* Details Tab */}
+              {activeTab === 0 && (
+                <Box>
+                  {/* Header Section with Key Info */}
+                  <Paper elevation={0} sx={{ p: 3, mb: 3, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                      {selectedItem.itemname}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                      <Chip 
+                        label={selectedItem.categoryname || 'Uncategorized'} 
+                        size="small" 
+                        sx={{ bgcolor: 'white' }}
+                      />
+                      {selectedItem.sku && (
+                        <Chip 
+                          label={`SKU: ${selectedItem.sku}`}
+                          size="small" 
+                          sx={{ bgcolor: 'white', fontFamily: 'monospace' }}
+                        />
+                      )}
+                    </Box>
+                  </Paper>
+
+                  {/* Stock Information */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
+                      📊 Stock Information
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                      <Paper elevation={0} sx={{ p: 2, bgcolor: '#f9f9f9', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                          Current Stock
+                        </Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 600, mt: 0.5 }}>
+                          {selectedItem.quantity} {selectedItem.unit}
+                        </Typography>
+                      </Paper>
+                      <Paper elevation={0} sx={{ p: 2, bgcolor: '#f9f9f9', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                          Reorder Threshold
+                        </Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 600, mt: 0.5 }}>
+                          {selectedItem.reorderthreshold} {selectedItem.unit}
+                        </Typography>
+                      </Paper>
+                    </Box>
+                    <Box sx={{ mt: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="caption" fontWeight={500}>Stock Level</Typography>
+                        <Typography variant="caption" fontWeight={600}>
+                          {Math.round(getStockLevel(selectedItem.quantity, selectedItem.reorderthreshold))}%
+                        </Typography>
+                      </Box>
+                      <LinearProgress
+                        variant="determinate"
+                        value={getStockLevel(selectedItem.quantity, selectedItem.reorderthreshold)}
+                        sx={{
+                          height: 10,
+                          borderRadius: 5,
+                          backgroundColor: '#e0e0e0',
+                          '& .MuiLinearProgress-bar': {
+                            borderRadius: 5,
+                            backgroundColor: 
+                              selectedItem.status === 'Out of Stock' ? '#d32f2f' :
+                              selectedItem.status === 'Low Stock' ? '#f57c00' : '#2e7d32'
+                          }
+                        }}
+                      />
+                    </Box>
+                  </Box>
+
+                  {/* Pricing & Details */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
+                      💰 Pricing & Details
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Unit Cost</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                          ${Number(selectedItem.costprice).toFixed(2)} / {selectedItem.unit}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Total Value</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                          ${(Number(selectedItem.costprice) * selectedItem.quantity).toFixed(2)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  {/* Supplier & Location */}
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
+                      🏢 Supplier & Location
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Supplier</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          {selectedItem.supplier || 'Not specified'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Storage Location</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          {selectedItem.storagelocation || 'Not specified'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              )}
+
+              {/* Audit Trail Tab */}
+              {activeTab === 1 && (
+                <Box sx={{ minHeight: 400 }}>
+                  {logsLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+                      <CircularProgress />
+                    </Box>
+                  ) : logsData?.logs && logsData.logs.length > 0 ? (
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>Changed By</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>Date & Time</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>Changes</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>Notes</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {logsData.logs.map((log: ItemLog) => (
+                            <TableRow key={log.logid}>
+                              <TableCell>
+                                <Chip 
+                                  label={log.action}
+                                  size="small"
+                                  color={
+                                    log.action === 'INSERT' ? 'success' :
+                                    log.action === 'UPDATE' ? 'warning' :
+                                    log.action === 'DELETE' ? 'error' : 'default'
+                                  }
+                                />
+                              </TableCell>
+                              <TableCell>{log.changedbyname || 'System'}</TableCell>
+                              <TableCell>
+                                {new Date(log.changedon).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </TableCell>
+                              <TableCell>
+                                <Box sx={{ fontSize: '0.875rem' }}>
+                                  {log.quantitychanged && (
+                                    <Typography variant="caption" display="block">
+                                      Qty: {log.quantitychanged > 0 ? '+' : ''}{log.quantitychanged}
+                                    </Typography>
+                                  )}
+                                  {log.oldvalues && log.newvalues && (
+                                    <>
+                                      {Object.keys(log.newvalues).map((key) => {
+                                        if (log.oldvalues && log.newvalues && log.oldvalues[key] !== log.newvalues[key]) {
+                                          const formatValue = (val: unknown) => {
+                                            if (val === null || val === undefined) return 'null';
+                                            if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
+                                              return new Date(val).toLocaleString('en-US', {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                              });
+                                            }
+                                            return String(val);
+                                          };
+                                          
+                                          return (
+                                            <Typography key={key} variant="caption" display="block">
+                                              <strong>{key}:</strong> {formatValue(log.oldvalues[key])} → {formatValue(log.newvalues[key])}
+                                            </Typography>
+                                          );
+                                        }
+                                        return null;
+                                      })}
+                                    </>
+                                  )}
+                                </Box>
+                              </TableCell>
+                              <TableCell>{log.notes || '-'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 2 }}>
+                      <Typography variant="h6" color="text.secondary">
+                        📋 No Audit Trail Available
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        No changes have been recorded for this item yet.
+                      </Typography>
+                    </Box>
                   )}
                 </Box>
-              </Paper>
-
-              {/* Stock Information */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
-                  📊 Stock Information
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                  <Paper elevation={0} sx={{ p: 2, bgcolor: '#f9f9f9', borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
-                      Current Stock
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mt: 0.5 }}>
-                      {selectedItem.quantity} {selectedItem.unit}
-                    </Typography>
-                  </Paper>
-                  <Paper elevation={0} sx={{ p: 2, bgcolor: '#f9f9f9', borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
-                      Reorder Threshold
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mt: 0.5 }}>
-                      {selectedItem.reorderthreshold} {selectedItem.unit}
-                    </Typography>
-                  </Paper>
-                </Box>
-                <Box sx={{ mt: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="caption" fontWeight={500}>Stock Level</Typography>
-                    <Typography variant="caption" fontWeight={600}>
-                      {Math.round(getStockLevel(selectedItem.quantity, selectedItem.reorderthreshold))}%
-                    </Typography>
-                  </Box>
-                  <LinearProgress
-                    variant="determinate"
-                    value={getStockLevel(selectedItem.quantity, selectedItem.reorderthreshold)}
-                    sx={{
-                      height: 10,
-                      borderRadius: 5,
-                      backgroundColor: '#e0e0e0',
-                      '& .MuiLinearProgress-bar': {
-                        borderRadius: 5,
-                        backgroundColor: 
-                          selectedItem.status === 'Out of Stock' ? '#d32f2f' :
-                          selectedItem.status === 'Low Stock' ? '#f57c00' : '#2e7d32'
-                      }
-                    }}
-                  />
-                </Box>
-              </Box>
-
-              {/* Pricing & Details */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
-                  💰 Pricing & Details
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Unit Cost</Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#2e7d32' }}>
-                      ${Number(selectedItem.costprice).toFixed(2)} / {selectedItem.unit}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Total Value</Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#2e7d32' }}>
-                      ${(Number(selectedItem.costprice) * selectedItem.quantity).toFixed(2)}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-
-              {/* Supplier & Location */}
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
-                  🏢 Supplier & Location
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Supplier</Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {selectedItem.supplier || 'Not specified'}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Storage Location</Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {selectedItem.storagelocation || 'Not specified'}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
+              )}
             </Box>
           )}
         </DialogContent>

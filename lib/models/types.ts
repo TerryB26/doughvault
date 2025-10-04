@@ -67,7 +67,6 @@ export interface Item {
   updatedon: Date;
 }
 
-// View types for the database views we created
 export interface LowStockItem {
   itemid: number;
   itemuuid: string;
@@ -98,4 +97,17 @@ export interface UserActivity {
   itemsupdated: number;
   itemsdeleted: number;
   lastactivity?: Date;
+}
+
+export interface ItemLog {
+  logid: number;
+  action: string;
+  oldvalues: Record<string, unknown> | null;
+  newvalues: Record<string, unknown> | null;
+  quantitychanged: number | null;
+  reasoncode: string | null;
+  notes: string | null;
+  changedon: Date;
+  changedby: number | null;
+  changedbyname: string | null;
 }

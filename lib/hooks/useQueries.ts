@@ -70,3 +70,19 @@ export function useInventorySummary() {
     },
   });
 }
+
+// Item Logs hooks
+export function useItemLogs(itemId: number | null) {
+  return useQuery({
+    queryKey: [...QUERY_KEYS.ITEMS, 'logs', itemId],
+    queryFn: async () => {
+      if (!itemId) return { logs: [] };
+      const response = await fetch(`/api/items/logs?itemId=${itemId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch item logs');
+      }
+      return response.json();
+    },
+    enabled: !!itemId,
+  });
+}

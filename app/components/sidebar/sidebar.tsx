@@ -28,20 +28,21 @@ const navLinks: NavLink[] = [
     icon: AiOutlineHome,
   },
   {
+    displayName: "Administration",
+    link: "/admin",
+    icon: MdAdminPanelSettings,
+  },
+  {
     displayName: "Dashboard",
     link: "/dashboard",
     icon: AiOutlineDashboard,
   },
 {
-    displayName: "Stock",
+    displayName: "Stocks",
     link: "/stock",
     icon: MdInventory,
   },
-  {
-    displayName: "Administration",
-    link: "/admin",
-    icon: MdAdminPanelSettings,
-  },
+
 ];
 
 const Sidebar = () => {
