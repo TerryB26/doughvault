@@ -50,8 +50,8 @@ async function assignRole(data: {
   }
 
   const result = await query(`
-    INSERT INTO userroles (userroleuuid, userid, roleid, assignedon, assignedby, isactive, createdon, updatedon)
-    VALUES (uuid_generate_v4(), $1, $2, NOW(), $3, $4, NOW(), NOW())
+    INSERT INTO userroles (userroleuuid, userid, roleid, assignedon, assignedby, isactive, updatedon)
+    VALUES (uuid_generate_v4(), $1, $2, NOW(), $3, $4, NOW())
     RETURNING userroleid, userroleuuid, userid, roleid, assignedon, assignedby, isactive
   `, [data.userId, data.roleId, data.assignedBy || null, data.isActive !== false]);
 
@@ -117,28 +117,24 @@ async function removeRole(data: { userRoleId?: number; userroleid?: number; upda
       { status: 400 }
     );
   }
+  
+  // Hard delete - permanently remove the user role assignment
   const result = await query(`
-    UPDATE userroles 
-    SET isactive = false, updatedby = $1, updatedon = NOW()
-    WHERE userroleid = $2 AND isactive = true
-    RETURNING userroleid, userroleuuid, userid, roleid, isactive
-  `, [data.updatedBy || null, userRoleId]);
+    DELETE FROM userroles 
+    WHERE userroleid = $1
+    RETURNING userroleid, userroleuuid, userid, roleid
+  `, [userRoleId]);
 
   if (result.rows.length === 0) {
-    // If already inactive (idempotent delete), return success
-    const check = await query(`SELECT userroleid, isactive FROM userroles WHERE userroleid = $1`, [userRoleId]);
-    if (check.rows.length === 0) {
-      return NextResponse.json({ success: true, message: 'User role assignment did not exist (no-op)' });
-    }
-    if (check.rows[0].isactive === false) {
-      return NextResponse.json({ success: true, message: 'User role assignment already inactive' });
-    }
-    return NextResponse.json({ error: 'User role assignment not found' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'User role assignment not found' },
+      { status: 404 }
+    );
   }
 
   return NextResponse.json({
     success: true,
-    message: 'Role removed from user successfully',
+    message: 'User role assignment permanently deleted',
     userRole: result.rows[0]
   });
 }

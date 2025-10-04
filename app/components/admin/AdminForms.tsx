@@ -60,6 +60,11 @@ interface AdminFormsProps {
   selectedItem?: UserWithRole | RoleWithUserCount | UserRoleWithDetails | null;
   users?: UserWithRole[];
   roles?: RoleWithUserCount[];
+  onRefetch?: {
+    users: () => void;
+    roles: () => void;
+    userRoles: () => void;
+  };
 }
 
 const AdminForms: React.FC<AdminFormsProps> = ({
@@ -69,12 +74,12 @@ const AdminForms: React.FC<AdminFormsProps> = ({
   type,
   selectedItem,
   users = [],
-  roles = []
+  roles = [],
+  onRefetch
 }) => {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
 
-  // User form state
   const [userForm, setUserForm] = useState({
     name: '',
     email: '',
@@ -82,48 +87,50 @@ const AdminForms: React.FC<AdminFormsProps> = ({
     isactive: true
   });
 
-  // Role form state
   const [roleForm, setRoleForm] = useState({
     rolename: '',
     roledescription: '',
     isactive: true
   });
 
-  // UserRole form state
   const [userRoleForm, setUserRoleForm] = useState({
     userid: '',
     roleid: '',
     isactive: true
   });
 
-  // Initialize form data when selectedItem changes
   useEffect(() => {
-    if (mode === 'edit' && selectedItem) {
-      if (type === 'user' && 'userid' in selectedItem) {
-        const user = selectedItem as UserWithRole;
-        setUserForm({
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          isactive: user.isactive
-        });
-      } else if (type === 'role' && 'roleid' in selectedItem) {
+    console.log('AdminForms useEffect triggered:', { mode, type, selectedItem, open });
+    
+    if (mode === 'edit' && selectedItem && open) {
+      if (type === 'userRole') {
+        console.log('Setting userRole form, selectedItem:', selectedItem);
+        const userRole = selectedItem as UserRoleWithDetails;
+        const formData = {
+          userid: userRole.userid?.toString() || '',
+          roleid: userRole.roleid?.toString() || '',
+          isactive: userRole.isactive ?? true
+        };
+        console.log('UserRole form data:', formData);
+        setUserRoleForm(formData);
+      } else if (type === 'role') {
         const role = selectedItem as RoleWithUserCount;
         setRoleForm({
-          rolename: role.rolename,
+          rolename: role.rolename || '',
           roledescription: role.roledescription || '',
-          isactive: role.isactive
+          isactive: role.isactive ?? true
         });
-      } else if (type === 'userRole' && 'userroleid' in selectedItem) {
-        const userRole = selectedItem as UserRoleWithDetails;
-        setUserRoleForm({
-          userid: userRole.userid.toString(),
-          roleid: userRole.roleid.toString(),
-          isactive: userRole.isactive
+      } else if (type === 'user') {
+        const user = selectedItem as UserWithRole;
+        const roleValue = user.role === 'No Role' ? '' : user.role;
+        setUserForm({
+          name: user.name || '',
+          email: user.email || '',
+          role: roleValue,
+          isactive: user.isactive ?? true
         });
       }
-    } else {
-      // Reset forms for add mode
+    } else if (!open || mode === 'add') {
       setUserForm({ name: '', email: '', role: '', isactive: true });
       setRoleForm({ rolename: '', roledescription: '', isactive: true });
       setUserRoleForm({ userid: '', roleid: '', isactive: true });
@@ -131,11 +138,11 @@ const AdminForms: React.FC<AdminFormsProps> = ({
   }, [mode, selectedItem, type, open]);
 
   const handleUserSubmit = async () => {
-    if (!userForm.name || !userForm.email || !userForm.role) {
+    if (!userForm.name || !userForm.email) {
       Swal.fire({
         icon: 'error',
         title: 'Validation Error',
-        text: 'Please fill in all required fields'
+        text: 'Please fill in all required fields (Name and Email)'
       });
       return;
     }
@@ -144,7 +151,6 @@ const AdminForms: React.FC<AdminFormsProps> = ({
     try {
       const action = mode === 'add' ? 'add' : 'edit';
       
-      // Map form data to API expected format
       const nameParts = userForm.name.split(' ');
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
@@ -167,8 +173,37 @@ const AdminForms: React.FC<AdminFormsProps> = ({
 
       if (!response.ok) throw new Error('Failed to save user');
 
+      const result = await response.json();
+
+      if (mode === 'add' && userForm.role && result.user?.userid) {
+        const selectedRole = roles.find(r => r.rolename === userForm.role);
+        if (selectedRole) {
+          const userRoleResponse = await fetch('/api/user-roles/actions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'add',
+              data: {
+                userId: result.user.userid,
+                roleId: selectedRole.roleid,
+                isActive: true
+              }
+            })
+          });
+
+          if (!userRoleResponse.ok) {
+            console.error('Failed to assign role to user');
+          }
+        }
+      }
+
       await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USERS] });
       await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USER_ROLES] });
+
+      if (onRefetch) {
+        await onRefetch.users();
+        await onRefetch.userRoles();
+      }
 
       Swal.fire({
         icon: 'success',
@@ -204,7 +239,6 @@ const AdminForms: React.FC<AdminFormsProps> = ({
     try {
       const action = mode === 'add' ? 'add' : 'edit';
       
-      // Map form data to API expected format
       const payload = {
         action,
         roleName: roleForm.rolename,
@@ -223,6 +257,11 @@ const AdminForms: React.FC<AdminFormsProps> = ({
 
       await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ROLES] });
       await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USER_ROLES] });
+
+      if (onRefetch) {
+        await onRefetch.roles();
+        await onRefetch.userRoles();
+      }
 
       Swal.fire({
         icon: 'success',
@@ -258,7 +297,6 @@ const AdminForms: React.FC<AdminFormsProps> = ({
     try {
       const action = mode === 'add' ? 'add' : 'edit';
       
-      // Map form data to API expected format
       const payload = {
         action,
         userId: parseInt(userRoleForm.userid),
@@ -276,6 +314,12 @@ const AdminForms: React.FC<AdminFormsProps> = ({
       if (!response.ok) throw new Error('Failed to save user role assignment');
 
       await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.USER_ROLES] });
+
+      if (onRefetch) {
+        await onRefetch.users();
+        await onRefetch.roles();
+        await onRefetch.userRoles();
+      }
 
       Swal.fire({
         icon: 'success',
@@ -328,13 +372,16 @@ const AdminForms: React.FC<AdminFormsProps> = ({
         onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
         required
       />
-      <FormControl fullWidth required>
+      <FormControl fullWidth>
         <InputLabel>Role</InputLabel>
         <Select
           value={userForm.role}
           label="Role"
           onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
         >
+          <MenuItem value="">
+            <em>No Role</em>
+          </MenuItem>
           {roles.filter(r => r.isactive).map((r) => (
             <MenuItem key={r.roleid} value={r.rolename}>
               {r.rolename}
