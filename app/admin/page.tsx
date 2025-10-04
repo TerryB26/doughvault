@@ -1367,6 +1367,23 @@ const AdminPage = () => {
     );
   };
 
+  // Show access denied for non-admin users
+  if (!isAdmin && canEdit !== undefined) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="h4" sx={{ mb: 2, color: '#d32f2f' }}>
+          ⛔ Access Denied
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          You do not have permission to access the Administration panel.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Please contact your administrator if you believe this is an error.
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography

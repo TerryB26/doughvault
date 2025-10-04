@@ -11,7 +11,7 @@ import {
   AiOutlineDashboard
 } from "react-icons/ai";
 import { MdInventory, MdAdminPanelSettings } from "react-icons/md";
-
+import { useUserRoles } from "@/lib/hooks/useAuth";
 
 import styles from "./sidebar.module.css";
 
@@ -48,6 +48,16 @@ const navLinks: NavLink[] = [
 const Sidebar = () => {
   const { isCollapsed, toggleSidebar } = useSidebar();
   const pathname = usePathname();
+  const { isAdmin } = useUserRoles();
+
+  // Filter nav links based on user role
+  const filteredNavLinks = navLinks.filter((navItem) => {
+    // Hide Administration link for non-admin users
+    if (navItem.link === "/admin" && !isAdmin) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div
@@ -72,7 +82,7 @@ const Sidebar = () => {
 
       <nav className={styles.nav}>
         <ul className={styles.navList}>
-          {navLinks.map((navItem, index) => {
+          {filteredNavLinks.map((navItem, index) => {
             const IconComponent = navItem.icon;
             const isActive = pathname === navItem.link;
             return (
