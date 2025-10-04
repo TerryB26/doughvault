@@ -4,6 +4,7 @@
 import AdminForms from "@/app/components/admin/AdminForms";
 import { useRoles, useUserRoles, useUsers } from "@/lib/hooks/useQueries";
 import { QUERY_KEYS } from "@/lib/queryKeys";
+import { useUserRoles as useAuth } from "@/lib/hooks/useAuth";
 import {
   Delete,
   Edit,
@@ -122,6 +123,8 @@ const getRoleColor = (role: string): "primary" | "secondary" | "default" => {
 };
 
 const AdminPage = () => {
+  const { isAdmin, canEdit, canDelete } = useAuth();
+  
   const [tabValue, setTabValue] = useState(0);
 
   const [userPage, setUserPage] = useState(0);
@@ -530,17 +533,19 @@ const AdminPage = () => {
           <Typography variant="h5" sx={{ fontWeight: "bold" }}>
             👥 Users Management
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<PersonAdd />}
-            onClick={() => handleAddClick("user")}
-            sx={{
-              bgcolor: "#d32f2f",
-              "&:hover": { bgcolor: "#b71c1c" },
-            }}
-          >
-            Add New User
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="contained"
+              startIcon={<PersonAdd />}
+              onClick={() => handleAddClick("user")}
+              sx={{
+                bgcolor: "#d32f2f",
+                "&:hover": { bgcolor: "#b71c1c" },
+              }}
+            >
+              Add New User
+            </Button>
+          )}
         </Box>
 
         <Box
@@ -711,22 +716,26 @@ const AdminPage = () => {
                     <Box
                       sx={{ display: "flex", gap: 1, justifyContent: "center" }}
                     >
-                      <IconButton
-                        size="small"
-                        sx={{ color: "#1976d2" }}
-                        title="Edit User"
-                        onClick={() => handleEditClick(user)}
-                      >
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        sx={{ color: "#d32f2f" }}
-                        title="Delete User"
-                        onClick={() => handleDeleteClick(user)}
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
+                      {canEdit && (
+                        <IconButton
+                          size="small"
+                          sx={{ color: "#1976d2" }}
+                          title="Edit User"
+                          onClick={() => handleEditClick(user)}
+                        >
+                          <Edit fontSize="small" />
+                        </IconButton>
+                      )}
+                      {canDelete && (
+                        <IconButton
+                          size="small"
+                          sx={{ color: "#d32f2f" }}
+                          title="Delete User"
+                          onClick={() => handleDeleteClick(user)}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -802,17 +811,19 @@ const AdminPage = () => {
           <Typography variant="h5" sx={{ fontWeight: "bold" }}>
             🛡️ Roles Management
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Security />}
-            onClick={() => handleAddClick("role")}
-            sx={{
-              bgcolor: "#d32f2f",
-              "&:hover": { bgcolor: "#b71c1c" },
-            }}
-          >
-            Add New Role
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="contained"
+              startIcon={<Security />}
+              onClick={() => handleAddClick("role")}
+              sx={{
+                bgcolor: "#d32f2f",
+                "&:hover": { bgcolor: "#b71c1c" },
+              }}
+            >
+              Add New Role
+            </Button>
+          )}
         </Box>
 
         <Box
@@ -983,28 +994,32 @@ const AdminPage = () => {
                     <Box
                       sx={{ display: "flex", gap: 1, justifyContent: "center" }}
                     >
-                      <IconButton
-                        size="small"
-                        sx={{ color: "#1976d2" }}
-                        title="Edit Role"
-                        onClick={() => handleEditClick(role)}
-                      >
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        sx={{ color: role.isactive ? "#d32f2f" : "#2e7d32" }}
-                        title={
-                          role.isactive ? "Deactivate Role" : "Activate Role"
-                        }
-                        onClick={() => handleToggleStatusClick(role)}
-                      >
-                        {role.isactive ? (
-                          <ToggleOff fontSize="small" />
-                        ) : (
-                          <ToggleOn fontSize="small" />
-                        )}
-                      </IconButton>
+                      {canEdit && (
+                        <IconButton
+                          size="small"
+                          sx={{ color: "#1976d2" }}
+                          title="Edit Role"
+                          onClick={() => handleEditClick(role)}
+                        >
+                          <Edit fontSize="small" />
+                        </IconButton>
+                      )}
+                      {isAdmin && (
+                        <IconButton
+                          size="small"
+                          sx={{ color: role.isactive ? "#d32f2f" : "#2e7d32" }}
+                          title={
+                            role.isactive ? "Deactivate Role" : "Activate Role"
+                          }
+                          onClick={() => handleToggleStatusClick(role)}
+                        >
+                          {role.isactive ? (
+                            <ToggleOff fontSize="small" />
+                          ) : (
+                            <ToggleOn fontSize="small" />
+                          )}
+                        </IconButton>
+                      )}
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -1081,17 +1096,19 @@ const AdminPage = () => {
           <Typography variant="h5" sx={{ fontWeight: "bold" }}>
             🔗 User Role Assignments
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Group />}
-            onClick={() => handleAddClick("userRole")}
-            sx={{
-              bgcolor: "#d32f2f",
-              "&:hover": { bgcolor: "#b71c1c" },
-            }}
-          >
-            Assign Role
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="contained"
+              startIcon={<Group />}
+              onClick={() => handleAddClick("userRole")}
+              sx={{
+                bgcolor: "#d32f2f",
+                "&:hover": { bgcolor: "#b71c1c" },
+              }}
+            >
+              Assign Role
+            </Button>
+          )}
         </Box>
 
         <Box
@@ -1274,40 +1291,46 @@ const AdminPage = () => {
                     <Box
                       sx={{ display: "flex", gap: 1, justifyContent: "center" }}
                     >
-                      <IconButton
-                        size="small"
-                        sx={{ color: "#1976d2" }}
-                        title="Edit Assignment"
-                        onClick={() => handleEditClick(userRole)}
-                      >
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        sx={{
-                          color: userRole.isactive ? "#ed6c02" : "#2e7d32",
-                        }}
-                        title={
-                          userRole.isactive
-                            ? "Deactivate Assignment"
-                            : "Activate Assignment"
-                        }
-                        onClick={() => handleToggleStatusClick(userRole)}
-                      >
-                        {userRole.isactive ? (
-                          <ToggleOff fontSize="small" />
-                        ) : (
-                          <ToggleOn fontSize="small" />
-                        )}
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        sx={{ color: "#d32f2f" }}
-                        title="Delete Assignment"
-                        onClick={() => handleDeleteClick(userRole)}
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
+                      {canEdit && (
+                        <IconButton
+                          size="small"
+                          sx={{ color: "#1976d2" }}
+                          title="Edit Assignment"
+                          onClick={() => handleEditClick(userRole)}
+                        >
+                          <Edit fontSize="small" />
+                        </IconButton>
+                      )}
+                      {isAdmin && (
+                        <IconButton
+                          size="small"
+                          sx={{
+                            color: userRole.isactive ? "#ed6c02" : "#2e7d32",
+                          }}
+                          title={
+                            userRole.isactive
+                              ? "Deactivate Assignment"
+                              : "Activate Assignment"
+                          }
+                          onClick={() => handleToggleStatusClick(userRole)}
+                        >
+                          {userRole.isactive ? (
+                            <ToggleOff fontSize="small" />
+                          ) : (
+                            <ToggleOn fontSize="small" />
+                          )}
+                        </IconButton>
+                      )}
+                      {canDelete && (
+                        <IconButton
+                          size="small"
+                          sx={{ color: "#d32f2f" }}
+                          title="Delete Assignment"
+                          onClick={() => handleDeleteClick(userRole)}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   </TableCell>
                 </TableRow>

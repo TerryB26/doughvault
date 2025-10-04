@@ -1,9 +1,16 @@
 import { UserButton } from '@clerk/nextjs'
 import { currentUser } from '@clerk/nextjs/server'
 import { Box, Typography, Paper } from '@mui/material'
+import ClerkIdDisplay from './ClerkIdDisplay'
 
 export default async function Dashboard() {
   const user = await currentUser()
+
+  // Temporary: Log Clerk User ID to console
+  console.log('='.repeat(50))
+  console.log('🔑 YOUR CLERK USER ID:', user?.id)
+  console.log('📧 Email:', user?.emailAddresses?.[0]?.emailAddress)
+  console.log('='.repeat(50))
 
   return (
     <Box sx={{ p: 4 }}>
@@ -23,6 +30,9 @@ export default async function Dashboard() {
         />
       </Box>
       
+      {/* Temporary: Show Clerk User ID */}
+      <ClerkIdDisplay userId={user?.id} />
+
       <Paper
         sx={{
           p: 4,

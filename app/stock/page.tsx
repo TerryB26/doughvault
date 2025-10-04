@@ -38,6 +38,7 @@ import { QUERY_KEYS } from '@/lib/queryKeys';
 import Swal from 'sweetalert2';
 import StockForms from '@/app/components/stock/StockForms';
 import { ItemLog } from '@/lib/models/types';
+import { useUserRoles } from '@/lib/hooks/useAuth';
 
 interface ItemWithCategory {
   itemid: number;
@@ -83,6 +84,7 @@ const StockPage = () => {
   const [activeTab, setActiveTab] = useState(0);
   
   const queryClient = useQueryClient();
+  const { canEdit, canDelete } = useUserRoles();
 
   const { data: items = [], isLoading: itemsLoading, error: itemsError, refetch: itemsRefetch } = useItems();
   const { data: summary, isLoading: summaryLoading, error: summaryError, refetch: summaryRefetch } = useInventorySummary();
@@ -213,17 +215,19 @@ const StockPage = () => {
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', color: '#d32f2f' }}>
           📦 Stock Management
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={handleAddClick}
-          sx={{ 
-            bgcolor: '#d32f2f', 
-            '&:hover': { bgcolor: '#b71c1c' }
-          }}
-        >
-          Add New Item
-        </Button>
+        {canEdit && (
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={handleAddClick}
+            sx={{ 
+              bgcolor: '#d32f2f', 
+              '&:hover': { bgcolor: '#b71c1c' }
+            }}
+          >
+            Add New Item
+          </Button>
+        )}
       </Box>
 
       <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
@@ -387,22 +391,26 @@ const StockPage = () => {
                     >
                       <VisibilityIcon fontSize="small" />
                     </IconButton>
-                    <IconButton 
-                      size="small" 
-                      sx={{ color: '#1976d2' }}
-                      title="Edit Item"
-                      onClick={() => handleEditClick(item)}
-                    >
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <IconButton 
-                      size="small" 
-                      sx={{ color: '#d32f2f' }}
-                      title="Delete Item"
-                      onClick={() => handleDeleteClick(item)}
-                    >
-                      <Delete fontSize="small" />
-                    </IconButton>
+                    {canEdit && (
+                      <IconButton 
+                        size="small" 
+                        sx={{ color: '#1976d2' }}
+                        title="Edit Item"
+                        onClick={() => handleEditClick(item)}
+                      >
+                        <Edit fontSize="small" />
+                      </IconButton>
+                    )}
+                    {canDelete && (
+                      <IconButton 
+                        size="small" 
+                        sx={{ color: '#d32f2f' }}
+                        title="Delete Item"
+                        onClick={() => handleDeleteClick(item)}
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    )}
                   </Box>
                 </TableCell>
               </TableRow>

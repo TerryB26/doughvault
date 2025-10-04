@@ -1,7 +1,7 @@
 INSERT INTO Users (ClerkUserID, Email, FirstName, LastName, CreatedBy) VALUES 
-('system_user_001', 'system@doughvault.com', 'System', 'Admin', NULL);
+('user_33avO7NuhzT7D54KSgT4wU0dlzf', 'system@doughvault.com', 'System', 'Admin', NULL);
 
-UPDATE Users SET CreatedBy = UserID WHERE ClerkUserID = 'system_user_001';
+UPDATE Users SET CreatedBy = UserID WHERE ClerkUserID = 'user_33avO7NuhzT7D54KSgT4wU0dlzf';
 
 -- Roles (now we can reference UserID = 1)
 INSERT INTO Roles (RoleName, RoleDescription, CreatedBy) VALUES 
@@ -80,9 +80,9 @@ INSERT INTO Items (ItemName, ItemDescription, CategoryID, SKU, Unit, Quantity, R
 
 -- Additional Users (system user already created above)
 INSERT INTO Users (ClerkUserID, Email, FirstName, LastName, CreatedBy) VALUES 
-('user_manager_001', 'mario@pizzashop.com', 'Mario', 'Rossi', 1),
-('user_staff_001', 'luigi@pizzashop.com', 'Luigi', 'Verde', 1),
-('user_staff_002', 'anna@pizzashop.com', 'Anna', 'Bianchi', 1);
+('user_33avFj8gTtIJSg8rzXlsbTIuysL', 'mario@pizzashop.com', 'Mario', 'Rossi', 1),
+('user_33avZNyyN0PVJbpTnRUpAIbE7x1', 'luigi@pizzashop.com', 'Luigi', 'Verde', 1),
+('user_33avUVgn10m02ACYprV8obZWSu3', 'anna@pizzashop.com', 'Anna', 'Bianchi', 1);
 
 INSERT INTO UserRoles (UserID, RoleID, AssignedBy) VALUES 
 (1, 1, 1),
