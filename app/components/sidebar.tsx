@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
 import { AiOutlineClose, AiOutlineHome, AiOutlineMenu } from "react-icons/ai";
-import { useSidebar } from "./sidebar-context";
+import { useSidebar } from "./sidebar/sidebar-context";
 import styles from "./sidebar/sidebar.module.css";
 
 interface NavLink {
