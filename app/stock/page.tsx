@@ -36,7 +36,6 @@ import { QUERY_KEYS } from '@/lib/queryKeys';
 import Swal from 'sweetalert2';
 import StockForms from '@/app/components/stock/StockForms';
 
-// Interface for items with category information returned by getItemsWithCategories
 interface ItemWithCategory {
   itemid: number;
   itemname: string;
@@ -67,16 +66,13 @@ const getStockLevel = (quantity: number, threshold: number): number => {
 };
 
 const StockPage = () => {
-  // Pagination states
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // Search and filter states
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
-  // Modal states
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemWithCategory | null>(null);
   const [formModalOpen, setFormModalOpen] = useState(false);
@@ -84,10 +80,9 @@ const StockPage = () => {
   
   const queryClient = useQueryClient();
 
-  const { data: items = [], isLoading: itemsLoading, error: itemsError } = useItems();
-  const { data: summary, isLoading: summaryLoading, error: summaryError } = useInventorySummary();
+  const { data: items = [], isLoading: itemsLoading, error: itemsError, refetch: itemsRefetch } = useItems();
+  const { data: summary, isLoading: summaryLoading, error: summaryError, refetch: summaryRefetch } = useInventorySummary();
 
-  // Filter functions
   const getFilteredItems = () => {
     return items.filter((item: ItemWithCategory) => {
       const matchesSearch = item.itemname.toLowerCase().includes(search.toLowerCase()) ||
@@ -100,13 +95,11 @@ const StockPage = () => {
     });
   };
 
-  // Get unique categories for filter
   const getUniqueCategories = (): string[] => {
     const categories = items.map((item: ItemWithCategory) => item.categoryname);
     return [...new Set(categories)].filter(Boolean).sort() as string[];
   };
 
-  // Pagination handlers
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -116,7 +109,6 @@ const StockPage = () => {
     setPage(0);
   };
 
-  // View modal handler
   const handleViewItem = (item: ItemWithCategory) => {
     setSelectedItem(item);
     setViewModalOpen(true);
@@ -127,7 +119,6 @@ const StockPage = () => {
     setSelectedItem(null);
   };
 
-  // Form modal handlers
   const handleAddClick = () => {
     setModalMode('add');
     setSelectedItem(null);
@@ -161,9 +152,11 @@ const StockPage = () => {
 
         if (!response.ok) throw new Error('Failed to delete item');
 
-        // Refresh queries
         await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ITEMS] });
         await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INVENTORY_SUMMARY] });
+        
+        await itemsRefetch();
+        await summaryRefetch();
 
         Swal.fire({
           icon: 'success',
@@ -187,7 +180,6 @@ const StockPage = () => {
     setSelectedItem(null);
   };
 
-  // Get paginated items
   const filteredItems = getFilteredItems();
   const paginatedItems = filteredItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -424,93 +416,151 @@ const StockPage = () => {
         />
       </TableContainer>
 
-      {/* View Item Modal */}
+      {/* View Item Modal - Modern Design */}
       <Dialog 
         open={viewModalOpen} 
         onClose={handleCloseViewModal}
         maxWidth="md" 
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+          }
+        }}
       >
-        <DialogTitle>
-          <Typography variant="h5" component="div">
-            Item Details
-          </Typography>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography component="span" variant="h5" sx={{ fontWeight: 600, color: '#d32f2f' }}>
+              📦 Item Details
+            </Typography>
+            {selectedItem && (
+              <Chip 
+                label={selectedItem.status} 
+                color={getStatusColor(selectedItem.status)}
+                sx={{ fontWeight: 500 }}
+              />
+            )}
+          </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ pt: 2 }}>
           {selectedItem && (
-            <Box sx={{ mt: 2 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, mb: 3 }}>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Item Name</Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 500 }}>{selectedItem.itemname}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Category</Typography>
-                  <Typography variant="body1">{selectedItem.categoryname || 'Uncategorized'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">SKU</Typography>
-                  <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>{selectedItem.sku || 'N/A'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Current Stock</Typography>
-                  <Typography variant="body1">{selectedItem.quantity} {selectedItem.unit}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Reorder Threshold</Typography>
-                  <Typography variant="body1">{selectedItem.reorderthreshold} {selectedItem.unit}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Status</Typography>
+            <Box>
+              {/* Header Section with Key Info */}
+              <Paper elevation={0} sx={{ p: 3, mb: 3, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                  {selectedItem.itemname}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   <Chip 
-                    label={selectedItem.status} 
-                    color={getStatusColor(selectedItem.status)}
-                    size="small"
+                    label={selectedItem.categoryname || 'Uncategorized'} 
+                    size="small" 
+                    sx={{ bgcolor: 'white' }}
+                  />
+                  {selectedItem.sku && (
+                    <Chip 
+                      label={`SKU: ${selectedItem.sku}`}
+                      size="small" 
+                      sx={{ bgcolor: 'white', fontFamily: 'monospace' }}
+                    />
+                  )}
+                </Box>
+              </Paper>
+
+              {/* Stock Information */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
+                  📊 Stock Information
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: '#f9f9f9', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                      Current Stock
+                    </Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mt: 0.5 }}>
+                      {selectedItem.quantity} {selectedItem.unit}
+                    </Typography>
+                  </Paper>
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: '#f9f9f9', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                      Reorder Threshold
+                    </Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mt: 0.5 }}>
+                      {selectedItem.reorderthreshold} {selectedItem.unit}
+                    </Typography>
+                  </Paper>
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="caption" fontWeight={500}>Stock Level</Typography>
+                    <Typography variant="caption" fontWeight={600}>
+                      {Math.round(getStockLevel(selectedItem.quantity, selectedItem.reorderthreshold))}%
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={getStockLevel(selectedItem.quantity, selectedItem.reorderthreshold)}
+                    sx={{
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: '#e0e0e0',
+                      '& .MuiLinearProgress-bar': {
+                        borderRadius: 5,
+                        backgroundColor: 
+                          selectedItem.status === 'Out of Stock' ? '#d32f2f' :
+                          selectedItem.status === 'Low Stock' ? '#f57c00' : '#2e7d32'
+                      }
+                    }}
                   />
                 </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Supplier</Typography>
-                  <Typography variant="body1">{selectedItem.supplier || 'Unknown'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Storage Location</Typography>
-                  <Typography variant="body1">{selectedItem.storagelocation || 'Unknown'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Unit Cost</Typography>
-                  <Typography variant="body1">${Number(selectedItem.costprice).toFixed(2)} per {selectedItem.unit}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary">Unit</Typography>
-                  <Typography variant="body1">{selectedItem.unit}</Typography>
+              </Box>
+
+              {/* Pricing & Details */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
+                  💰 Pricing & Details
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Unit Cost</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                      ${Number(selectedItem.costprice).toFixed(2)} / {selectedItem.unit}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Total Value</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                      ${(Number(selectedItem.costprice) * selectedItem.quantity).toFixed(2)}
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
-              
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Stock Level Progress</Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={getStockLevel(selectedItem.quantity, selectedItem.reorderthreshold)}
-                  sx={{
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: '#e0e0e0',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: 
-                        selectedItem.status === 'Out of Stock' ? '#d32f2f' :
-                        selectedItem.status === 'Low Stock' ? '#f57c00' : '#2e7d32'
-                    }
-                  }}
-                />
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  {Math.round(getStockLevel(selectedItem.quantity, selectedItem.reorderthreshold))}% of reorder threshold
+
+              {/* Supplier & Location */}
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: '#d32f2f' }}>
+                  🏢 Supplier & Location
                 </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Supplier</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      {selectedItem.supplier || 'Not specified'}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>Storage Location</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      {selectedItem.storagelocation || 'Not specified'}
+                    </Typography>
+                  </Box>
+                </Box>
               </Box>
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseViewModal} color="primary">
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={handleCloseViewModal} variant="contained" sx={{ bgcolor: '#d32f2f', '&:hover': { bgcolor: '#b71c1c' } }}>
             Close
           </Button>
         </DialogActions>
@@ -522,6 +572,10 @@ const StockPage = () => {
         onClose={handleCloseFormModal}
         mode={modalMode}
         selectedItem={selectedItem}
+        onRefetch={{
+          items: itemsRefetch,
+          summary: summaryRefetch
+        }}
       />
     </Box>
   );

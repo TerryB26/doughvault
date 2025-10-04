@@ -39,13 +39,18 @@ interface StockFormsProps {
   onClose: () => void;
   mode: 'add' | 'edit';
   selectedItem?: ItemWithCategory | null;
+  onRefetch?: {
+    items: () => void;
+    summary: () => void;
+  };
 }
 
 const StockForms: React.FC<StockFormsProps> = ({
   open,
   onClose,
   mode,
-  selectedItem
+  selectedItem,
+  onRefetch
 }) => {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
@@ -65,20 +70,22 @@ const StockForms: React.FC<StockFormsProps> = ({
 
   // Initialize form data when selectedItem changes
   useEffect(() => {
-    if (mode === 'edit' && selectedItem) {
+    if (open && mode === 'edit' && selectedItem) {
+      console.log('Initializing edit form with:', selectedItem);
       setItemForm({
-        itemname: selectedItem.itemname,
+        itemname: selectedItem.itemname || '',
         categoryname: selectedItem.categoryname || '',
         sku: selectedItem.sku || '',
-        quantity: selectedItem.quantity,
-        unit: selectedItem.unit,
-        costprice: Number(selectedItem.costprice),
-        reorderthreshold: selectedItem.reorderthreshold,
+        quantity: selectedItem.quantity || 0,
+        unit: selectedItem.unit || '',
+        costprice: Number(selectedItem.costprice) || 0,
+        reorderthreshold: selectedItem.reorderthreshold || 0,
         supplier: selectedItem.supplier || '',
         storagelocation: selectedItem.storagelocation || ''
       });
-    } else {
+    } else if (open && mode === 'add') {
       // Reset form for add mode
+      console.log('Resetting form for add mode');
       setItemForm({
         itemname: '',
         categoryname: '',
@@ -126,6 +133,12 @@ const StockForms: React.FC<StockFormsProps> = ({
       await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ITEMS] });
       await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INVENTORY_SUMMARY] });
 
+      // Refetch data if callbacks provided
+      if (onRefetch) {
+        await onRefetch.items();
+        await onRefetch.summary();
+      }
+
       Swal.fire({
         icon: 'success',
         title: 'Success!',
@@ -152,32 +165,46 @@ const StockForms: React.FC<StockFormsProps> = ({
 
   const categories = [
     'Pizza',
+    'Vegetables',
+    'Fruits',
+    'Meat & Proteins',
+    'Dairy & Cheese',
+    'Sauces & Condiments',
     'Appetizers', 
     'Beverages',
     'Desserts',
     'Ingredients',
+    'Flour & Grains',
+    'Oils & Sauces',
     'Packaging',
     'Cleaning Supplies',
+    'Equipment Parts',
     'Other'
   ];
 
   const units = [
     'pieces',
+    'lbs',
+    'oz',
     'kg',
     'g',
     'liters',
     'ml',
+    'gallons',
+    'quarts',
     'boxes',
     'bags',
     'bottles',
     'cans',
-    'packets'
+    'packets',
+    'rolls',
+    'sheets'
   ];
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        <Typography variant="h6">{getTitle()}</Typography>
+        <Typography component="span" variant="h6">{getTitle()}</Typography>
       </DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -200,8 +227,9 @@ const StockForms: React.FC<StockFormsProps> = ({
 
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
             <FormControl fullWidth>
-              <InputLabel>Category</InputLabel>
+              <InputLabel id="category-label">Category</InputLabel>
               <Select
+                labelId="category-label"
                 value={itemForm.categoryname}
                 label="Category"
                 onChange={(e) => setItemForm({ ...itemForm, categoryname: e.target.value })}
@@ -214,8 +242,9 @@ const StockForms: React.FC<StockFormsProps> = ({
               </Select>
             </FormControl>
             <FormControl fullWidth required>
-              <InputLabel>Unit</InputLabel>
+              <InputLabel id="unit-label">Unit</InputLabel>
               <Select
+                labelId="unit-label"
                 value={itemForm.unit}
                 label="Unit"
                 onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })}
