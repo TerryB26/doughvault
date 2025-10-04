@@ -4,9 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack -p 1835",
     "build": "next build --turbopack",
-    "start": "next start",
+    "start": "next start -p 1835",
     "lint": "eslint",
     "db:setup": "node scripts/setup-database.js",
     "db:seed": "node scripts/setup-database.js",

@@ -183,7 +183,7 @@ After seeding and creating Clerk accounts, you can log in with these users:
 ## 📖 Available Scripts
 
 ```bash
-# Start development server (with Turbopack)
+# Start development server (with Turbopack) on port 1835
 npm run dev
 
 # Initialize database (first time)
@@ -195,12 +195,57 @@ npm run db:reset
 # Build for production
 npm run build
 
-# Start production server
+# Start production server on port 1835
 npm start
 
 # Run ESLint
 npm run lint
 ```
+
+---
+
+## 🚀 PM2 Deployment
+
+For production deployment with PM2:
+
+### Install PM2 (if not already installed)
+```bash
+npm install -g pm2
+```
+
+### Build the application
+```bash
+npm run build
+```
+
+### Start with PM2
+```bash
+# Start the application
+pm2 start ecosystem.config.cjs
+
+# View logs
+pm2 logs doughvault
+
+# Monitor
+pm2 monit
+
+# Stop the application
+pm2 stop doughvault
+
+# Restart the application
+pm2 restart doughvault
+
+# Delete from PM2
+pm2 delete doughvault
+
+# Save PM2 process list (auto-restart on reboot)
+pm2 save
+pm2 startup
+```
+
+The application will run on **port 1835** and be accessible at:
+- Local: `http://localhost:1835`
+- Network: `http://your-server-ip:1835`
 
 ---
 
